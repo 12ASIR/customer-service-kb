@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "app_722906138626/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "app_722906138626/dist"
+      }
+    }
+  ]
+}
