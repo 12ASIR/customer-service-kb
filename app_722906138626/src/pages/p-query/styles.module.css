@@ -1,0 +1,45 @@
+
+
+.pageWrapper {
+  background: linear-gradient(135deg, #ffffff 0%, rgba(248, 250, 252, 0.8) 100%);
+  min-height: 100vh;
+}
+
+.sidebarCollapsed {
+  width: 48px;
+}
+
+.sidebarExpanded {
+  width: 200px;
+}
+
+.mainContentExpanded {
+  margin-left: 200px;
+}
+
+.mainContentCollapsed {
+  margin-left: 48px;
+}
+
+.queryInputFocus:focus {
+  outline: none;
+  border-color: rgba(55, 67, 106, 0.38);
+  box-shadow: 0 0 0 3px rgba(55, 67, 106, 0.1);
+}
+
+.resultCardHover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(55, 67, 106, 0.15);
+  transition: all 0.3s ease;
+}
+
+.menuItemActive {
+  background: linear-gradient(135deg, rgba(55, 67, 106, 0.38) 0%, rgba(8, 13, 30, 0.9) 100%);
+  color: white;
+}
+
+.menuItemHover:hover {
+  background: rgba(55, 67, 106, 0.1);
+  color: rgba(8, 13, 30, 0.9);
+}
+
