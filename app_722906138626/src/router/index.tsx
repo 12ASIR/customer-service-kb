@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createHashRouter, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import RouteListener from '../components/RouteListener';
 
@@ -10,7 +10,7 @@ import NotFoundPage from './NotFoundPage';
 import ErrorPage from './ErrorPage';
 
 // 使用 createBrowserRouter 创建路由实例
-const router = createBrowserRouter([
+const router = createHashRouter([
   {
     path: '/',
     element: <RouteListener />,
