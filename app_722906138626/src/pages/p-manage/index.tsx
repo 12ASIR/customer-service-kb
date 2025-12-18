@@ -6,6 +6,7 @@ import styles from './styles.module.css';
 import Layout from '../../components/Layout';
 import { getItems as storageGetItems, setItems as storageSetItems, getDeletedIds as storageGetDeleted, setDeletedIds as storageSetDeleted } from '../../utils/storage';
 import { useTableData } from '../../hooks/useTableData';
+import * as XLSX from 'xlsx';
 
 interface KnowledgeItem {
   id: string;
@@ -119,6 +120,7 @@ const PManagePage: React.FC = () => {
   const [importLoading, setImportLoading] = useState(false);
   const [importMode, setImportMode] = useState<'append' | 'dedupe'>('dedupe');
   const importInputRef = useRef<HTMLInputElement>(null);
+  const requiredHeaders = ['序号','SKU','品类','车型','问题层级','问题类型','具体问题描述','标准回答(对外)','内部解决方案/操作步骤','常见错误规避','更新时间','附件数量'];
 
   // 设置页面标题
   useEffect(() => {
@@ -134,94 +136,157 @@ const PManagePage: React.FC = () => {
       setSelectedFile(file);
       setImportErrors([]);
       setImportPreview([]);
-      if (!file.name.toLowerCase().endsWith('.csv')) {
-        setImportErrors(prev => [...prev, '目前仅支持CSV格式文件']);
-        return;
-      }
+      const isCsv = /\.csv$/i.test(file.name);
+      const isExcel = /\.xlsx?$/i.test(file.name);
       const reader = new FileReader();
       setImportLoading(true);
-      reader.onload = () => {
-        try {
-          const text = (reader.result as string) || '';
-          const lines = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim() !== '');
-          if (lines.length < 2) {
-            setImportErrors(prev => [...prev, 'CSV内容为空或格式不正确']);
-            setImportLoading(false);
-            return;
-          }
-          const splitCsvLine = (line: string): string[] => {
-            const result: string[] = [];
-            let current = '';
-            let inQuotes = false;
-            for (let i = 0; i < line.length; i++) {
-              const ch = line[i];
-              if (ch === '"') {
-                if (inQuotes && line[i + 1] === '"') {
-                  current += '"';
-                  i++;
+      if (isCsv) {
+        reader.onload = () => {
+          try {
+            const text = (reader.result as string) || '';
+            const lines = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim() !== '');
+            if (lines.length < 2) {
+              setImportErrors(prev => [...prev, 'CSV内容为空或格式不正确']);
+              setImportLoading(false);
+              return;
+            }
+            const splitCsvLine = (line: string): string[] => {
+              const result: string[] = [];
+              let current = '';
+              let inQuotes = false;
+              for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (ch === '"') {
+                  if (inQuotes && line[i + 1] === '"') {
+                    current += '"';
+                    i++;
+                  } else {
+                    inQuotes = !inQuotes;
+                  }
+                } else if (ch === ',' && !inQuotes) {
+                  result.push(current.trim());
+                  current = '';
                 } else {
-                  inQuotes = !inQuotes;
+                  current += ch;
                 }
-              } else if (ch === ',' && !inQuotes) {
-                result.push(current.trim());
-                current = '';
-              } else {
-                current += ch;
               }
-            }
-            result.push(current.trim());
-            return result;
-          };
-          const header = splitCsvLine(lines[0]);
-          const idx = (name: string) => header.findIndex(h => h.trim() === name);
-          const requiredHeaders = ['序号','SKU','品类','车型','问题层级','问题类型','具体问题描述','标准回答(对外)','内部解决方案/操作步骤','常见错误规避','更新时间','附件数量'];
-          const missing = requiredHeaders.filter(h => idx(h) === -1);
-          if (missing.length > 0) {
-            setImportErrors(prev => [...prev, `模板列缺失：${missing.join('、')}`]);
-            setImportLoading(false);
-            return;
-          }
-          const imported: KnowledgeItem[] = [];
-          const rowErrors: string[] = [];
-          for (let r = 1; r < lines.length; r++) {
-            const cells = splitCsvLine(lines[r]);
-            if (cells.length === 1 && cells[0] === '') continue;
-            const sku = cells[idx('SKU')] || '';
-            const problem_description = cells[idx('具体问题描述')] || '';
-            if (!sku || !problem_description) {
-              rowErrors.push(`第 ${r + 1} 行缺少必填字段 SKU 或 具体问题描述`);
-              continue;
-            }
-            const idRaw = cells[idx('序号')] || String(r);
-            const item: KnowledgeItem = {
-              id: `IMP-${r}-${idRaw}`.trim(),
-              sku: sku.trim(),
-              category: (cells[idx('品类')] || '').trim(),
-              vehicle_model: (cells[idx('车型')] || '通用').trim(),
-              problem_level: (cells[idx('问题层级')] || '通用').trim(),
-              problem_type: (cells[idx('问题类型')] || '').trim(),
-              problem_description: problem_description.trim(),
-              standard_answer: (cells[idx('标准回答(对外)')] || '').trim(),
-              internal_solution: (cells[idx('内部解决方案/操作步骤')] || '').trim(),
-              common_mistakes: (cells[idx('常见错误规避')] || '/').trim(),
-              update_time: (cells[idx('更新时间')] || new Date().toISOString().slice(0,16).replace('T',' ')).trim(),
-              attachments: parseInt((cells[idx('附件数量')] || '0').trim(), 10) || 0,
+              result.push(current.trim());
+              return result;
             };
-            imported.push(item);
+            const header = splitCsvLine(lines[0]);
+            const idx = (name: string) => header.findIndex(h => h.trim() === name);
+            const missing = requiredHeaders.filter(h => idx(h) === -1);
+            if (missing.length > 0) {
+              setImportErrors(prev => [...prev, `模板列缺失：${missing.join('、')}`]);
+              setImportLoading(false);
+              return;
+            }
+            const imported: KnowledgeItem[] = [];
+            const rowErrors: string[] = [];
+            for (let r = 1; r < lines.length; r++) {
+              const cells = splitCsvLine(lines[r]);
+              if (cells.length === 1 && cells[0] === '') continue;
+              const sku = cells[idx('SKU')] || '';
+              const problem_description = cells[idx('具体问题描述')] || '';
+              if (!sku || !problem_description) {
+                rowErrors.push(`第 ${r + 1} 行缺少必填字段 SKU 或 具体问题描述`);
+                continue;
+              }
+              const idRaw = cells[idx('序号')] || String(r);
+              const item: KnowledgeItem = {
+                id: `IMP-${r}-${idRaw}`.trim(),
+                sku: sku.trim(),
+                category: (cells[idx('品类')] || '').trim(),
+                vehicle_model: (cells[idx('车型')] || '通用').trim(),
+                problem_level: (cells[idx('问题层级')] || '通用').trim(),
+                problem_type: (cells[idx('问题类型')] || '').trim(),
+                problem_description: problem_description.trim(),
+                standard_answer: (cells[idx('标准回答(对外)')] || '').trim(),
+                internal_solution: (cells[idx('内部解决方案/操作步骤')] || '').trim(),
+                common_mistakes: (cells[idx('常见错误规避')] || '/').trim(),
+                update_time: (cells[idx('更新时间')] || new Date().toISOString().slice(0,16).replace('T',' ')).trim(),
+                attachments: parseInt((cells[idx('附件数量')] || '0').trim(), 10) || 0,
+              };
+              imported.push(item);
+            }
+            setImportPreview(imported);
+            if (rowErrors.length) setImportErrors(prev => [...prev, ...rowErrors]);
+          } catch {
+            setImportErrors(prev => [...prev, 'CSV解析错误']);
+          } finally {
+            setImportLoading(false);
           }
-          setImportPreview(imported);
-          if (rowErrors.length) setImportErrors(prev => [...prev, ...rowErrors]);
-        } catch {
-          setImportErrors(prev => [...prev, 'CSV解析错误']);
-        } finally {
+        };
+        reader.onerror = () => {
+          setImportErrors(prev => [...prev, '读取文件失败']);
           setImportLoading(false);
-        }
-      };
-      reader.onerror = () => {
-        setImportErrors(prev => [...prev, '读取文件失败']);
+        };
+        reader.readAsText(file, 'utf-8');
+      } else if (isExcel) {
+        reader.onload = () => {
+          try {
+            const data = new Uint8Array(reader.result as ArrayBuffer);
+            const wb = XLSX.read(data, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as (string | number)[][];
+            if (!rows || rows.length < 2) {
+              setImportErrors(prev => [...prev, 'Excel内容为空或格式不正确']);
+              setImportLoading(false);
+              return;
+            }
+            const header = (rows[0] as string[]).map(h => String(h).trim());
+            const idx = (name: string) => header.findIndex(h => h.trim() === name);
+            const missing = requiredHeaders.filter(h => idx(h) === -1);
+            if (missing.length > 0) {
+              setImportErrors(prev => [...prev, `模板列缺失：${missing.join('、')}`]);
+              setImportLoading(false);
+              return;
+            }
+            const imported: KnowledgeItem[] = [];
+            const rowErrors: string[] = [];
+            for (let r = 1; r < rows.length; r++) {
+              const cells = rows[r].map(c => String(c ?? '').trim());
+              if (cells.every(c => c === '')) continue;
+              const sku = cells[idx('SKU')] || '';
+              const problem_description = cells[idx('具体问题描述')] || '';
+              if (!sku || !problem_description) {
+                rowErrors.push(`第 ${r + 1} 行缺少必填字段 SKU 或 具体问题描述`);
+                continue;
+              }
+              const idRaw = cells[idx('序号')] || String(r);
+              const item: KnowledgeItem = {
+                id: `IMP-${r}-${idRaw}`.trim(),
+                sku: sku.trim(),
+                category: (cells[idx('品类')] || '').trim(),
+                vehicle_model: (cells[idx('车型')] || '通用').trim(),
+                problem_level: (cells[idx('问题层级')] || '通用').trim(),
+                problem_type: (cells[idx('问题类型')] || '').trim(),
+                problem_description: problem_description.trim(),
+                standard_answer: (cells[idx('标准回答(对外)')] || '').trim(),
+                internal_solution: (cells[idx('内部解决方案/操作步骤')] || '').trim(),
+                common_mistakes: (cells[idx('常见错误规避')] || '/').trim(),
+                update_time: (cells[idx('更新时间')] || new Date().toISOString().slice(0,16).replace('T',' ')).trim(),
+                attachments: parseInt((cells[idx('附件数量')] || '0').trim(), 10) || 0,
+              };
+              imported.push(item);
+            }
+            setImportPreview(imported);
+            if (rowErrors.length) setImportErrors(prev => [...prev, ...rowErrors]);
+          } catch {
+            setImportErrors(prev => [...prev, 'Excel解析错误']);
+          } finally {
+            setImportLoading(false);
+          }
+        };
+        reader.onerror = () => {
+          setImportErrors(prev => [...prev, '读取文件失败']);
+          setImportLoading(false);
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        setImportErrors(prev => [...prev, '请上传Excel(.xlsx/.xls)或CSV文件']);
         setImportLoading(false);
-      };
-      reader.readAsText(file, 'utf-8');
+      }
     }
   };
 
@@ -253,10 +318,63 @@ const PManagePage: React.FC = () => {
     setImportMode('dedupe');
   };
 
+  const downloadBlob = (filename: string, blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   // 确认导出
   const handleConfirmExport = () => {
-    console.log('需要调用第三方接口实现文件导出功能');
-    alert(`文件导出成功！格式：${exportFormat === 'excel' ? 'Excel' : 'CSV'}`);
+    const data = combinedData;
+    if (exportFormat === 'excel') {
+      const header = requiredHeaders;
+      const rows = data.map((item, idx) => [
+        String(idx + 1),
+        item.sku,
+        item.category,
+        item.vehicle_model,
+        item.problem_level,
+        item.problem_type,
+        item.problem_description,
+        item.standard_answer,
+        item.internal_solution,
+        item.common_mistakes,
+        item.update_time,
+        String(item.attachments ?? 0),
+      ]);
+      const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '知识库');
+      const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      downloadBlob(`知识库导出_${new Date().toISOString().slice(0,10)}.xlsx`, blob);
+    } else {
+      const header = requiredHeaders;
+      const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+      const rows = data.map((item, idx) => [
+        esc(String(idx + 1)),
+        esc(item.sku),
+        esc(item.category),
+        esc(item.vehicle_model),
+        esc(item.problem_level),
+        esc(item.problem_type),
+        esc(item.problem_description),
+        esc(item.standard_answer),
+        esc(item.internal_solution),
+        esc(item.common_mistakes),
+        esc(item.update_time),
+        esc(String(item.attachments ?? 0)),
+      ].join(','));
+      const csv = '\uFEFF' + header.join(',') + '\n' + rows.join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      downloadBlob(`知识库导出_${new Date().toISOString().slice(0,10)}.csv`, blob);
+    }
     setShowExportModal(false);
   };
 
@@ -599,7 +717,7 @@ const PManagePage: React.FC = () => {
                     <p className="text-sm text-text-secondary mb-4">点击选择文件或拖拽文件到此处</p>
                     <input 
                       type="file" 
-                      accept=".csv" 
+                      accept=".csv,.xlsx,.xls" 
                       ref={importInputRef}
                       onChange={handleFileChange}
                       className={styles.fileInputHidden}
@@ -610,13 +728,24 @@ const PManagePage: React.FC = () => {
                     >
                       选择文件
                     </button>
-                    <a
-                      href="/templates/knowledge_import_template.csv"
-                      download
+                    <button
+                      onClick={() => {
+                        const header = requiredHeaders;
+                        const sample = [
+                          ['1','AP-SHELF-001','货架','大众途观L','一般','installation',
+                           '安装不上，螺丝孔对不齐','参考说明书第3页','检查支架与孔位','避免过度拧紧','2024-01-15 14:30','2']
+                          ];
+                        const ws = XLSX.utils.aoa_to_sheet([header, ...sample]);
+                        const wb = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(wb, ws, '模板');
+                        const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                        const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                        downloadBlob('知识库导入模板.xlsx', blob);
+                      }}
                       className="ml-3 px-4 py-2 bg-white border border-gray-200 text-text-primary text-sm rounded-lg hover:bg-gray-50 transition-all inline-block"
                     >
                       下载模板
-                    </a>
+                    </button>
                   </div>
                   
                   {selectedFile && (
