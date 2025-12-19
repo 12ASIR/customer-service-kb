@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build --prefix app_722906138626",
+  "outputDirectory": "app_722906138626/dist",
+  "framework": null,
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

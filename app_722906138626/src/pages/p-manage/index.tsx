@@ -87,28 +87,7 @@ const PManagePage: React.FC = () => {
     // 只有在增删改操作时，手动调用 updateStorage。
   }, [localItems]); // 移除自动保存
 
-  // 辅助函数：更新数据并持久化
-  const updateItems = (newItems: KnowledgeItem[]) => {
-    setLocalItems(newItems);
-    
-    if (isCloudEnabled()) {
-      // 在云端模式下，我们需要找出哪些是新增/修改的
-      // 这里简化处理：我们假设 newItems 里包含的都是有效的
-      // 但对于批量导入，我们需要循环调用 syncItemToCloud
-      // 注意：这可能会有性能问题，但在小规模数据下可以接受
-      
-      // 找出新增的项（简单判断：不在旧列表里的，或者被修改的）
-      // 这里无法精确判断，所以我们假设 newItems 里除了已有的，都是新的
-      // 但其实 handleConfirmImport 里调用了 updateItems，传入的是合并后的完整列表
-      // 这是一个设计上的不匹配：updateItems 以前是全量替换 LocalStorage
-      // 现在云端模式下，应该是增量更新。
-      
-      // 我们修改调用处，让它们直接调用 addItemsToCloud 逻辑
-      // 这里只做本地状态更新和 LocalStorage 备份（为了离线体验）
-    }
-    
-    storageSetItems(newItems);
-  };
+  // 辅助函数：下载用
 
   const updateDeleted = (ids: string[]) => {
     setDeletedIds(ids);
@@ -231,7 +210,7 @@ const PManagePage: React.FC = () => {
                 continue;
               }
               const item: KnowledgeItem = {
-                id: String(newItems.length + imported.length + 1), // 使用简单数字ID
+                id: `${Date.now()}-${imported.length}`, 
                 sku: sku.trim(),
                 category: (cells[idx('品类')] || '').trim(),
                 vehicle_model: (cells[idx('车型')] || '通用').trim(),
@@ -291,7 +270,7 @@ const PManagePage: React.FC = () => {
                 continue;
               }
               const item: KnowledgeItem = {
-                id: String(newItems.length + imported.length + 1), // 使用简单数字ID
+                id: `${Date.now()}-${imported.length}`, 
                 sku: sku.trim(),
                 category: (cells[idx('品类')] || '').trim(),
                 vehicle_model: (cells[idx('车型')] || '通用').trim(),
