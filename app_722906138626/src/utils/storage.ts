@@ -98,25 +98,38 @@ loadRemoteData();
 // 获取所有数据（支持异步模式）
 // 如果启用了云端，会优先从云端拉取
 export async function fetchAllItems(): Promise<KBItem[]> {
+  // 确保远程静态数据已加载
+  await loadRemoteData();
+  
+  // 读取本地
+  let local: KBItem[] = [];
+  try {
+    local = JSON.parse(localStorage.getItem(ITEMS_KEY) || '[]');
+  } catch {
+    local = [];
+  }
+  const localIds = new Set(local.map(i => i.id));
+  
+  // 读取云端（如开启）
+  let cloud: KBItem[] = [];
   if (isCloudEnabled()) {
     try {
       const { data, error } = await supabase
         .from(TABLE_NAME)
         .select('*')
         .eq('is_deleted', false);
-        
       if (error) throw error;
-      
-      if (data) {
-        return data.map(item => mapDBItemToKBItem(item as any));
-      }
+      cloud = (data || []).map(item => mapDBItemToKBItem(item as any));
     } catch (e) {
-      console.error('Cloud fetch failed, falling back to local', e);
+      console.error('Cloud fetch failed, continue with local/remote only', e);
+      cloud = [];
     }
   }
-
-  // Fallback to local + static remote
-  return getItemsSync();
+  const cloudIds = new Set(cloud.map(i => i.id));
+  
+  // 合并：云端优先，其次本地（排除云端重复），最后静态远程（排除云端和本地重复）
+  const remoteFiltered = remoteData.filter(i => !cloudIds.has(i.id) && !localIds.has(i.id));
+  return [...cloud, ...local.filter(i => !cloudIds.has(i.id)), ...remoteFiltered];
 }
 
 // 同步获取（旧方法兼容）
