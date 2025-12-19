@@ -21,7 +21,6 @@ const DELETED_KEY = 'kb_deleted_ids';
 
 let remoteData: KBItem[] = [];
 let isRemoteLoaded = false;
-let useCloud = false; // 标记是否启用云端模式
 
 // 检查是否配置了 Supabase
 export function isCloudEnabled() {

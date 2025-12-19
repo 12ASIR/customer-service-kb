@@ -36,20 +36,12 @@ interface KnowledgeItem {
 const PManagePage: React.FC = () => {
   const navigate = useNavigate();
 
-  // 本地存储
-  const loadLocalItems = (): KnowledgeItem[] => {
-    // 这是一个同步调用，如果开启了 Cloud，它可能返回空或旧数据
-    // 我们主要依赖 useEffect 中的 fetchAllItems
-    return [];
-  };
-  
   const loadDeletedIds = (): string[] => storageGetDeleted();
-  const saveDeletedIds = (ids: string[]) => storageSetDeleted(ids);
 
   const [localItems, setLocalItems] = useState<KnowledgeItem[]>([]);
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   // 初始化加载
   useEffect(() => {
@@ -120,15 +112,6 @@ const PManagePage: React.FC = () => {
   const updateDeleted = (ids: string[]) => {
     setDeletedIds(ids);
     storageSetDeleted(ids);
-    
-    if (isCloudEnabled()) {
-      // 同步删除到云端
-      ids.forEach(id => {
-        // 只有新增加到删除列表的才需要请求云端？
-        // 简单起见，我们只处理本次操作选中的 selectedIds
-        // 但这里拿不到 selectedIds，只能拿到最终结果 ids
-      });
-    }
   };
   
   // 专门处理批量删除的云同步
