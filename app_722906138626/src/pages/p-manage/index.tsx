@@ -4,7 +4,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './styles.module.css';
 import Layout from '../../components/Layout';
-import { getItems as storageGetItems, setItems as storageSetItems, getDeletedIds as storageGetDeleted, setDeletedIds as storageSetDeleted } from '../../utils/storage';
+import { 
+  fetchAllItems, 
+  setItems as storageSetItems, 
+  getDeletedIds as storageGetDeleted, 
+  setDeletedIds as storageSetDeleted, 
+  refreshRemoteData,
+  syncItemToCloud,
+  deleteItemFromCloud,
+  isCloudEnabled
+} from '../../utils/storage';
 import { useTableData } from '../../hooks/useTableData';
 import * as XLSX from 'xlsx';
 
@@ -24,73 +33,118 @@ interface KnowledgeItem {
   attachment_urls?: string[];
 }
 
-// 模拟数据
-const mockData: KnowledgeItem[] = [
-  {
-    id: '1',
-    sku: 'XBCB-014',
-    category: '保险杠',
-    vehicle_model: 'F150',
-    problem_level: 'SKU专属',
-    problem_type: '使用',
-    problem_description: '后梁安装支架与保险杠孔位不适配',
-    standard_answer: '您好，目前该车型的后梁安装支架与保险杠孔位不适配，我们可以提供原车安装支架的图片进行核对。',
-    internal_solution: '根据图片进行区分，目前只有图片中的1号安装支架是适配的。',
-    common_mistakes: '是否适配',
-    update_time: '2024-01-15 14:30',
-    attachments: 2
-  },
-  {
-    id: '2',
-    sku: 'XBFA-700',
-    category: '叉车臂',
-    vehicle_model: '通用',
-    problem_level: 'SKU专属',
-    problem_type: '使用',
-    problem_description: '中间圆孔的孔径是多少？',
-    standard_answer: 'XBFA-700叉车臂中间圆孔的孔径是4英寸。',
-    internal_solution: '修图，图片增加尺寸标识',
-    common_mistakes: '/',
-    update_time: '2024-01-14 09:15',
-    attachments: 1
-  },
-  {
-    id: '3',
-    sku: 'XBCR-0024',
-    category: '皮卡车顶框',
-    vehicle_model: 'Tundra CrewMax Cab',
-    problem_level: 'SKU专属',
-    problem_type: '使用',
-    problem_description: '适配哪款LED灯？',
-    standard_answer: 'XBCR-0024行李架适配W聚光LED灯。',
-    internal_solution: 'SKU Bumper-Long-S',
-    common_mistakes: '/',
-    update_time: '2024-01-13 16:45',
-    attachments: 1
-  }
-];
-
 const PManagePage: React.FC = () => {
   const navigate = useNavigate();
 
   // 本地存储
-  const loadLocalItems = (): KnowledgeItem[] => storageGetItems() as KnowledgeItem[];
-  const saveLocalItems = (items: KnowledgeItem[]) => storageSetItems(items);
+  const loadLocalItems = (): KnowledgeItem[] => {
+    // 这是一个同步调用，如果开启了 Cloud，它可能返回空或旧数据
+    // 我们主要依赖 useEffect 中的 fetchAllItems
+    return [];
+  };
+  
   const loadDeletedIds = (): string[] => storageGetDeleted();
   const saveDeletedIds = (ids: string[]) => storageSetDeleted(ids);
 
-  const [localItems, setLocalItems] = useState<KnowledgeItem[]>(loadLocalItems());
-  const [deletedIds, setDeletedIds] = useState<string[]>(loadDeletedIds());
+  const [localItems, setLocalItems] = useState<KnowledgeItem[]>([]);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // 初始化加载
+  useEffect(() => {
+    // 加载数据
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        await refreshRemoteData();
+        const items = await fetchAllItems();
+        setLocalItems(items as KnowledgeItem[]);
+        setDeletedIds(loadDeletedIds());
+      } catch (e) {
+        console.error('Failed to load data', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   useEffect(() => {
-    saveLocalItems(localItems);
-  }, [localItems]);
-  useEffect(() => {
-    saveDeletedIds(deletedIds);
-  }, [deletedIds]);
+    // 当 localItems 变化时，只保存那些确实是本地新增/修改的数据？
+    // 目前 storageSetItems 是把所有数据都存进去。
+    // 为了简化，我们只把 storage.ts 返回的数据视为 "localItems" 的当前状态。
+    // 但这里有个循环依赖：loadLocalItems 包含了 remoteData。
+    // 如果我们把包含 remoteData 的数据存回 localStorage，就会导致数据重复/膨胀。
+    
+    // 修正策略：
+    // storage.ts 的 getItems() 负责合并。
+    // 这里的 localItems 状态应该只包含 "当前展示的所有数据"。
+    // 但 save 操作应该只针对 "非远程" 数据吗？
+    // 不，storage.ts 的 setItems 目前是直接覆盖 localStorage。
+    // 如果我们把合并后的数据存回去，下次 getItems 又会读出来，导致 remoteData 被永久写入 localStorage。
+    
+    // 更好的做法：
+    // 1. PManagePage 不直接写回 storageSetItems，除非是明确的 "增删改" 操作。
+    // 2. 区分 "纯本地数据" 和 "远程数据"。
+    // 但 storage.ts 封装了逻辑。
+    
+    // 临时方案：
+    // 不在 useEffect 中自动 saveLocalItems。
+    // 只有在增删改操作时，手动调用 updateStorage。
+  }, [localItems]); // 移除自动保存
 
-  const combinedData: KnowledgeItem[] = [...mockData, ...localItems].filter(i => !deletedIds.includes(i.id));
+  // 辅助函数：更新数据并持久化
+  const updateItems = (newItems: KnowledgeItem[]) => {
+    setLocalItems(newItems);
+    
+    if (isCloudEnabled()) {
+      // 在云端模式下，我们需要找出哪些是新增/修改的
+      // 这里简化处理：我们假设 newItems 里包含的都是有效的
+      // 但对于批量导入，我们需要循环调用 syncItemToCloud
+      // 注意：这可能会有性能问题，但在小规模数据下可以接受
+      
+      // 找出新增的项（简单判断：不在旧列表里的，或者被修改的）
+      // 这里无法精确判断，所以我们假设 newItems 里除了已有的，都是新的
+      // 但其实 handleConfirmImport 里调用了 updateItems，传入的是合并后的完整列表
+      // 这是一个设计上的不匹配：updateItems 以前是全量替换 LocalStorage
+      // 现在云端模式下，应该是增量更新。
+      
+      // 我们修改调用处，让它们直接调用 addItemsToCloud 逻辑
+      // 这里只做本地状态更新和 LocalStorage 备份（为了离线体验）
+    }
+    
+    storageSetItems(newItems);
+  };
+
+  const updateDeleted = (ids: string[]) => {
+    setDeletedIds(ids);
+    storageSetDeleted(ids);
+    
+    if (isCloudEnabled()) {
+      // 同步删除到云端
+      ids.forEach(id => {
+        // 只有新增加到删除列表的才需要请求云端？
+        // 简单起见，我们只处理本次操作选中的 selectedIds
+        // 但这里拿不到 selectedIds，只能拿到最终结果 ids
+      });
+    }
+  };
+  
+  // 专门处理批量删除的云同步
+  const syncDeleteToCloud = (idsToDelete: string[]) => {
+    if (!isCloudEnabled()) return;
+    idsToDelete.forEach(id => deleteItemFromCloud(id));
+  };
+  
+  // 专门处理批量新增的云同步
+  const syncImportToCloud = (items: KnowledgeItem[]) => {
+    if (!isCloudEnabled()) return;
+    items.forEach(item => syncItemToCloud(item));
+  };
+
+  const combinedData: KnowledgeItem[] = localItems.filter(i => !deletedIds.includes(i.id));
+
 
   const {
     currentPageData,
@@ -309,7 +363,16 @@ const PManagePage: React.FC = () => {
     const toImport = importMode === 'dedupe'
       ? importPreview.filter(i => !existingKeys.has(`${i.sku}|${i.vehicle_model}|${i.problem_description}`))
       : importPreview;
-    setLocalItems(prev => [...prev, ...toImport]);
+    
+    const newItems = [...combinedData, ...toImport];
+    
+    // 如果是云端模式，执行云端同步
+    if (isCloudEnabled()) {
+      syncImportToCloud(toImport);
+    }
+    
+    updateItems(newItems);
+    
     alert(`导入成功，解析 ${importPreview.length} 条，实际新增 ${toImport.length} 条${importMode === 'dedupe' ? '（已去重）' : ''}`);
     setShowImportModal(false);
     setSelectedFile(null);
@@ -378,6 +441,16 @@ const PManagePage: React.FC = () => {
     setShowExportModal(false);
   };
 
+  // 导出部署数据 (JSON)
+  const handleExportDeployData = () => {
+    // 导出所有未删除的数据
+    const dataToExport = combinedData;
+    const jsonStr = JSON.stringify(dataToExport, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    downloadBlob('kb_data.json', blob);
+    alert('已下载 kb_data.json\n\n请将此文件替换项目代码中的 public/kb_data.json 并提交到 GitHub，即可更新线上站点的数据。');
+  };
+
   // 处理附件点击
   const handleAttachmentClick = (questionId: string) => {
     navigate(`/detail?questionId=${questionId}`);
@@ -398,10 +471,29 @@ const PManagePage: React.FC = () => {
   const handleBatchDelete = () => {
     if (selectedIds.length === 0) return;
     if (!confirm(`确定删除选中的 ${selectedIds.length} 条记录吗？`)) return;
-    // 从localItems中移除
-    setLocalItems(prev => prev.filter(item => !selectedIds.includes(item.id)));
-    // 对mock数据及本地数据均记录删除ID，列表中过滤
-    setDeletedIds(prev => Array.from(new Set([...prev, ...selectedIds])));
+    
+    // 从当前 combinedData 中移除
+    // 这里的逻辑：其实只需要把 ID 加到 deletedIds 列表里即可
+    // 但如果想彻底删除，可能需要同时操作 localItems
+    
+    // 方案 A: 软删除 (推荐，保持远程数据的完整性，但在本地屏蔽)
+    const newDeletedIds = Array.from(new Set([...deletedIds, ...selectedIds]));
+    
+    // 如果是云端模式，同步删除操作
+    if (isCloudEnabled()) {
+      syncDeleteToCloud(selectedIds);
+    }
+    
+    updateDeleted(newDeletedIds);
+    
+    // 方案 B: 硬删除 (如果是 localItems 里的，直接删掉；如果是 remote 的，必须用 deletedIds 屏蔽)
+    // 这里简化为统一用 deletedIds 屏蔽，并在视觉上移除
+    // updateItems(localItems.filter(item => !selectedIds.includes(item.id))); // 这一步其实对 remote 数据无效，因为下次刷新又回来了
+    
+    // 所以，对于 remote 数据，必须依赖 deletedIds。
+    // 对于纯 local 数据，既可以硬删除也可以软删除。
+    // 为了统一，我们使用软删除策略 + 视图过滤。
+    
     setSelectedIds([]);
   };
 
@@ -851,41 +943,42 @@ const PManagePage: React.FC = () => {
             <div className="bg-white rounded-xl shadow-card max-w-sm w-full">
               <div className="p-6">
                 <h3 className="text-lg font-semibold text-text-primary mb-4">导出知识库数据</h3>
-                <p className="text-sm text-text-secondary mb-6">请选择导出文件格式</p>
-                
                 <div className="space-y-3">
-                  <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                    <input 
-                      type="radio" 
-                      name="export-format" 
-                      value="excel" 
-                      checked={exportFormat === 'excel'}
-                      onChange={(e) => setExportFormat(e.target.value)}
-                      className="text-secondary focus:ring-secondary" 
-                    />
-                    <div className="flex items-center space-x-3">
-                      <i className="fas fa-file-excel text-green-500"></i>
-                      <span className="text-text-primary">Excel格式 (.xlsx)</span>
+                  <button 
+                    onClick={() => setExportFormat('excel')}
+                    className={`w-full flex items-center p-3 rounded-lg border-2 transition-all ${exportFormat === 'excel' ? 'border-primary bg-primary/5' : 'border-gray-100 hover:border-primary/50'}`}
+                  >
+                    <i className="fas fa-file-excel text-xl text-green-600 mr-3"></i>
+                    <div className="text-left">
+                      <div className="text-sm font-medium text-text-primary">导出为 Excel</div>
+                      <div className="text-xs text-text-secondary">适用于数据备份和编辑 (.xlsx)</div>
                     </div>
-                  </label>
+                  </button>
+                  <button 
+                    onClick={() => setExportFormat('csv')}
+                    className={`w-full flex items-center p-3 rounded-lg border-2 transition-all ${exportFormat === 'csv' ? 'border-primary bg-primary/5' : 'border-gray-100 hover:border-primary/50'}`}
+                  >
+                    <i className="fas fa-file-csv text-xl text-blue-600 mr-3"></i>
+                    <div className="text-left">
+                      <div className="text-sm font-medium text-text-primary">导出为 CSV</div>
+                      <div className="text-xs text-text-secondary">通用数据格式 (.csv)</div>
+                    </div>
+                  </button>
                   
-                  <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                    <input 
-                      type="radio" 
-                      name="export-format" 
-                      value="csv" 
-                      checked={exportFormat === 'csv'}
-                      onChange={(e) => setExportFormat(e.target.value)}
-                      className="text-secondary focus:ring-secondary"
-                    />
-                    <div className="flex items-center space-x-3">
-                      <i className="fas fa-file-csv text-blue-500"></i>
-                      <span className="text-text-primary">CSV格式 (.csv)</span>
-                    </div>
-                  </label>
+                  <div className="border-t border-gray-100 my-2 pt-2">
+                    <button 
+                      onClick={handleExportDeployData}
+                      className="w-full flex items-center p-3 rounded-lg border-2 border-dashed border-gray-300 hover:border-primary/50 hover:bg-gray-50 transition-all"
+                    >
+                      <i className="fas fa-cloud-upload-alt text-xl text-purple-600 mr-3"></i>
+                      <div className="text-left">
+                        <div className="text-sm font-medium text-text-primary">导出部署数据 (JSON)</div>
+                        <div className="text-xs text-text-secondary">用于更新线上站点内容</div>
+                      </div>
+                    </button>
+                  </div>
                 </div>
-                
-                <div className="flex items-center justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+                <div className="flex items-center justify-end space-x-3 mt-6">
                   <button 
                     onClick={() => setShowExportModal(false)}
                     className="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors"
@@ -896,7 +989,7 @@ const PManagePage: React.FC = () => {
                     onClick={handleConfirmExport}
                     className="px-4 py-2 bg-gradient-button text-white text-sm rounded-lg hover:shadow-lg transition-all"
                   >
-                    确认导出
+                    确认导出 Excel/CSV
                   </button>
                 </div>
               </div>

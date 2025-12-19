@@ -1,0 +1,44 @@
+[
+  {
+    "id": "1",
+    "sku": "XBCB-014",
+    "category": "保险杠",
+    "vehicle_model": "F150",
+    "problem_level": "SKU专属",
+    "problem_type": "使用",
+    "problem_description": "后梁安装支架与保险杠孔位不适配",
+    "standard_answer": "您好，目前该车型的后梁安装支架与保险杠孔位不适配，我们可以提供原车安装支架的图片进行核对。",
+    "internal_solution": "根据图片进行区分，目前只有图片中的1号安装支架是适配的。",
+    "common_mistakes": "是否适配",
+    "update_time": "2024-01-15 14:30",
+    "attachments": 2
+  },
+  {
+    "id": "2",
+    "sku": "XBFA-700",
+    "category": "叉车臂",
+    "vehicle_model": "通用",
+    "problem_level": "SKU专属",
+    "problem_type": "使用",
+    "problem_description": "中间圆孔的孔径是多少？",
+    "standard_answer": "XBFA-700叉车臂中间圆孔的孔径是4英寸。",
+    "internal_solution": "修图，图片增加尺寸标识",
+    "common_mistakes": "/",
+    "update_time": "2024-01-14 09:15",
+    "attachments": 1
+  },
+  {
+    "id": "3",
+    "sku": "XBCR-0024",
+    "category": "皮卡车顶框",
+    "vehicle_model": "Tundra CrewMax Cab",
+    "problem_level": "SKU专属",
+    "problem_type": "使用",
+    "problem_description": "适配哪款LED灯？",
+    "standard_answer": "XBCR-0024行李架适配W聚光LED灯。",
+    "internal_solution": "SKU Bumper-Long-S",
+    "common_mistakes": "/",
+    "update_time": "2024-01-13 16:45",
+    "attachments": 1
+  }
+]

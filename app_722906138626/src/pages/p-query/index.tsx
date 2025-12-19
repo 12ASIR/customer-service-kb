@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import styles from './styles.module.css';
 import Layout from '../../components/Layout';
 import { getItems as storageGetItems, KBItem } from '../../utils/storage';
+import { search as localSearch, SearchDoc } from '../../utils/localSearch';
 
 interface QueryResult {
   id: string;
@@ -23,9 +24,9 @@ const PQueryPage: React.FC = () => {
   const navigate = useNavigate();
   const [queryInputValue, setQueryInputValue] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [showResults, setShowResults] = useState(true);
+  const [showResults, setShowResults] = useState(false);
   const [showNoResults, setShowNoResults] = useState(false);
-  const [resultCount, setResultCount] = useState(3);
+  const [resultCount, setResultCount] = useState(0);
   const [sortBy, setSortBy] = useState('relevance');
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
   const [displayResults, setDisplayResults] = useState<QueryResult[]>([]);
@@ -103,15 +104,25 @@ const PQueryPage: React.FC = () => {
     setIsSearching(true);
     setTimeout(() => {
       const all = getCombinedResults();
-      const filtered = all.filter(r =>
-        r.question.toLowerCase().includes(queryText.toLowerCase()) ||
-        r.sku.toLowerCase().includes(queryText.toLowerCase()) ||
-        r.carModel.toLowerCase().includes(queryText.toLowerCase())
-      );
-      setDisplayResults(filtered);
-      setResultCount(filtered.length);
-      setShowResults(filtered.length > 0);
-      setShowNoResults(filtered.length === 0);
+      const docs: SearchDoc[] = all.map((r) => ({
+        id: r.id,
+        text: [
+          r.question,
+          r.standardAnswer,
+          r.internalSolution,
+          `SKU:${r.sku}`,
+          `车型:${r.carModel}`,
+        ].join('  '),
+      }));
+      const results = localSearch(queryText, docs, 100);
+      const idToResult = new Map(all.map((r) => [r.id, r]));
+      const ordered = results
+        .map((res) => idToResult.get(res.id))
+        .filter((r): r is QueryResult => Boolean(r));
+      setDisplayResults(ordered);
+      setResultCount(ordered.length);
+      setShowResults(ordered.length > 0);
+      setShowNoResults(ordered.length === 0);
       setIsSearching(false);
     }, 300);
   };
@@ -131,7 +142,9 @@ const PQueryPage: React.FC = () => {
     setIsVoiceRecording(true);
     setTimeout(() => {
       setIsVoiceRecording(false);
-      console.log('语音识别功能正在开发中...');
+      if (import.meta.env.DEV) {
+        console.log('语音识别功能正在开发中...');
+      }
     }, 2000);
   };
 
@@ -153,7 +166,9 @@ const PQueryPage: React.FC = () => {
   };
 
   const handlePaginationClick = (pageText: string) => {
-    console.log('跳转到页面：', pageText);
+    if (import.meta.env.DEV) {
+      console.log('跳转到页面：', pageText);
+    }
   };
 
   return (

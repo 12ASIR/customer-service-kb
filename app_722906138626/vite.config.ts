@@ -3,9 +3,9 @@ import react from '@vitejs/plugin-react';
 
 const isGithubPages = process.env.GITHUB_PAGES === 'true';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: isGithubPages ? '/customer-service-kb/' : '/',
+  base: command === 'build' && isGithubPages ? '/customer-service-kb/' : '/',
   server: {
     host: true,
     port: 5173,
@@ -13,4 +13,4 @@ export default defineConfig({
   preview: {
     port: 4173,
   },
-});
+}));

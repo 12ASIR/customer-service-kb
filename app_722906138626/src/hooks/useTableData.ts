@@ -37,8 +37,12 @@ export function useTableData<T>({ data, initialPageSize = 20, searchFields = [] 
           aValue = new Date(aValue as string).getTime();
           bValue = new Date(bValue as string).getTime();
         } else if (sortField === 'id') {
-          aValue = parseInt(aValue as string);
-          bValue = parseInt(bValue as string);
+          const aNum = parseInt(String(aValue), 10);
+          const bNum = parseInt(String(bValue), 10);
+          if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) {
+            aValue = aNum;
+            bValue = bNum;
+          }
         }
 
         if (aValue === bValue) return 0;

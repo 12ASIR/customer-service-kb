@@ -1,0 +1,11 @@
+{
+  "name": "customer-service-kb-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix app_722906138626",
+    "build": "npm run build --prefix app_722906138626",
+    "preview": "npm run preview --prefix app_722906138626",
+    "install-all": "npm install --prefix app_722906138626"
+  }
+}
