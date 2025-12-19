@@ -1,8 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-const isGithubPages = process.env.GITHUB_PAGES === 'true';
-
 export default defineConfig(({ command }) => ({
   plugins: [react()],
   // 使用相对路径 './' 可以适配任何仓库名称，无需硬编码 '/customer-service-kb/'
