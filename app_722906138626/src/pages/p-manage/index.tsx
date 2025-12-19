@@ -34,6 +34,23 @@ interface KnowledgeItem {
   attachment_urls?: string[];
 }
 
+const toZhProblemType = (v: string) => {
+  const m: Record<string, string> = {
+    installation: '安装问题',
+    quality: '质量问题',
+    usage: '使用方法',
+    compatibility: '兼容性问题',
+    warranty: '保修政策',
+    other: '其他',
+  };
+  const zh = new Set(Object.values(m));
+  if (!v) return '';
+  const key = v.toLowerCase();
+  if (m[key]) return m[key];
+  if (zh.has(v)) return v;
+  return v;
+};
+
 const PManagePage: React.FC = () => {
   const navigate = useNavigate();
 
@@ -368,7 +385,7 @@ const PManagePage: React.FC = () => {
         item.category,
         item.vehicle_model,
         item.problem_level,
-        item.problem_type,
+        toZhProblemType(item.problem_type),
         item.problem_description,
         item.standard_answer,
         item.internal_solution,
@@ -391,7 +408,7 @@ const PManagePage: React.FC = () => {
         esc(item.category),
         esc(item.vehicle_model),
         esc(item.problem_level),
-        esc(item.problem_type),
+        esc(toZhProblemType(item.problem_type)),
         esc(item.problem_description),
         esc(item.standard_answer),
         esc(item.internal_solution),
@@ -706,7 +723,7 @@ const PManagePage: React.FC = () => {
                           <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">{item.problem_level}</span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
-                          <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">{item.problem_type}</span>
+                          <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">{toZhProblemType(item.problem_type)}</span>
                         </td>
                         <td className="px-4 py-3 text-sm text-text-secondary max-w-xs truncate" title={item.problem_description}>
                           {item.problem_description}
@@ -892,13 +909,13 @@ const PManagePage: React.FC = () => {
                                 {importPreview.slice(0, 5).map((row, idx) => (
                                   <tr key={idx} className="border-t border-gray-100">
                                     <td className="px-2 py-1">{row.sku}</td>
-                                    <td className="px-2 py-1">{row.problem_type}</td>
+                                    <td className="px-2 py-1">{toZhProblemType(row.problem_type)}</td>
                                     <td className="px-2 py-1">{row.vehicle_model}</td>
                                     <td className="px-2 py-1 truncate max-w-[240px]" title={row.problem_description}>{row.problem_description}</td>
                                   </tr>
                                 ))}
                               </tbody>
-                            </table>
+                              </table>
                             <div className="mt-1 text-[11px] text-text-secondary">
                               预览显示前 5 条，导入时将应用所选模式并自动去重（SKU+车型+问题描述）。
                             </div>

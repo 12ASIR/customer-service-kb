@@ -19,6 +19,23 @@ interface KnowledgeItem {
   attachment_urls?: string[];
 }
 
+const toZhProblemType = (v: string) => {
+  const m: Record<string, string> = {
+    installation: '安装问题',
+    quality: '质量问题',
+    usage: '使用方法',
+    compatibility: '兼容性问题',
+    warranty: '保修政策',
+    other: '其他',
+  };
+  const zh = new Set(Object.values(m));
+  if (!v) return '';
+  const key = v.toLowerCase();
+  if (m[key]) return m[key];
+  if (zh.has(v)) return v;
+  return v;
+};
+
 const mockData: KnowledgeItem[] = [
   {
     id: '1',
@@ -231,7 +248,7 @@ const PDetailPage: React.FC = () => {
                   <div className="flex flex-col">
                     <label className="text-sm text-text-secondary mb-1">问题类型</label>
                     <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full inline-block w-fit">
-                      {knowledgeItem.problem_type}
+                      {toZhProblemType(knowledgeItem.problem_type)}
                     </span>
                   </div>
                   <div className="flex flex-col">
