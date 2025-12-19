@@ -16,6 +16,7 @@ import {
 } from '../../utils/storage';
 import { useTableData } from '../../hooks/useTableData';
 import * as XLSX from 'xlsx';
+import JSZip from 'jszip';
 
 interface KnowledgeItem {
   id: string;
@@ -229,9 +230,8 @@ const PManagePage: React.FC = () => {
                 rowErrors.push(`第 ${r + 1} 行缺少必填字段 SKU 或 具体问题描述`);
                 continue;
               }
-              const idRaw = cells[idx('序号')] || String(r);
               const item: KnowledgeItem = {
-                id: `IMP-${r}-${idRaw}`.trim(),
+                id: String(newItems.length + imported.length + 1), // 使用简单数字ID
                 sku: sku.trim(),
                 category: (cells[idx('品类')] || '').trim(),
                 vehicle_model: (cells[idx('车型')] || '通用').trim(),
@@ -290,9 +290,8 @@ const PManagePage: React.FC = () => {
                 rowErrors.push(`第 ${r + 1} 行缺少必填字段 SKU 或 具体问题描述`);
                 continue;
               }
-              const idRaw = cells[idx('序号')] || String(r);
               const item: KnowledgeItem = {
-                id: `IMP-${r}-${idRaw}`.trim(),
+                id: String(newItems.length + imported.length + 1), // 使用简单数字ID
                 sku: sku.trim(),
                 category: (cells[idx('品类')] || '').trim(),
                 vehicle_model: (cells[idx('车型')] || '通用').trim(),
@@ -354,7 +353,11 @@ const PManagePage: React.FC = () => {
       syncImportToCloud(toImport);
     }
     
-    updateItems(newItems);
+    // 关键修正：必须调用 storageSetItems 才能持久化到 LocalStorage
+    // updateItems 只是更新了 React 状态，而且在 isCloudEnabled 时逻辑有变
+    // 这里我们强制更新 LocalStorage 以确保本地可见
+    storageSetItems(newItems);
+    setLocalItems(newItems); // 立即更新 UI
     
     alert(`导入成功，解析 ${importPreview.length} 条，实际新增 ${toImport.length} 条${importMode === 'dedupe' ? '（已去重）' : ''}`);
     setShowImportModal(false);
@@ -424,14 +427,45 @@ const PManagePage: React.FC = () => {
     setShowExportModal(false);
   };
 
-  // 导出部署数据 (JSON)
-  const handleExportDeployData = () => {
+  // 导出备份数据 (ZIP包)
+  const handleExportBackup = async () => {
     // 导出所有未删除的数据
     const dataToExport = combinedData;
     const jsonStr = JSON.stringify(dataToExport, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    downloadBlob('kb_data.json', blob);
-    alert('已下载 kb_data.json\n\n请将此文件替换项目代码中的 public/kb_data.json 并提交到 GitHub，即可更新线上站点的数据。');
+    
+    // 创建 ZIP 压缩包
+    const zip = new JSZip();
+    
+    // 添加数据文件
+    zip.file("kb_data.json", jsonStr);
+    
+    // 添加操作说明文档
+    const readmeContent = `知识库数据备份恢复指南
+
+1. 文件说明
+   - kb_data.json: 包含当前知识库的所有数据（已合并本地和远程数据）。
+   - 本说明文件: 操作指引。
+
+2. 如何恢复数据到线上环境
+   第一步：解压本压缩包，找到 kb_data.json 文件。
+   第二步：将 kb_data.json 文件复制到项目代码的 public/ 目录下，替换原有的同名文件。
+   第三步：将代码提交到 GitHub。
+     - git add public/kb_data.json
+     - git commit -m "update: 更新知识库数据"
+     - git push
+   第四步：等待 GitHub Pages 自动构建完成，线上站点即会更新为最新数据。
+
+3. 注意事项
+   - 此操作会覆盖线上原有的基础数据。
+   - 建议每次更新前都保留一份旧的备份文件。
+`;
+    zip.file("操作说明.txt", readmeContent);
+
+    // 生成并下载
+    const blob = await zip.generateAsync({type: "blob"});
+    downloadBlob(`知识库备份_${new Date().toISOString().slice(0,10)}.zip`, blob);
+    
+    alert('备份包已生成并开始下载。\n\n请解压查看 "操作说明.txt" 了解如何更新线上数据。');
   };
 
   // 处理附件点击
@@ -950,13 +984,13 @@ const PManagePage: React.FC = () => {
                   
                   <div className="border-t border-gray-100 my-2 pt-2">
                     <button 
-                      onClick={handleExportDeployData}
+                      onClick={handleExportBackup}
                       className="w-full flex items-center p-3 rounded-lg border-2 border-dashed border-gray-300 hover:border-primary/50 hover:bg-gray-50 transition-all"
                     >
-                      <i className="fas fa-cloud-upload-alt text-xl text-purple-600 mr-3"></i>
+                      <i className="fas fa-file-archive text-xl text-purple-600 mr-3"></i>
                       <div className="text-left">
-                        <div className="text-sm font-medium text-text-primary">导出部署数据 (JSON)</div>
-                        <div className="text-xs text-text-secondary">用于更新线上站点内容</div>
+                        <div className="text-sm font-medium text-text-primary">导出备份数据 (ZIP)</div>
+                        <div className="text-xs text-text-secondary">包含完整数据和恢复说明</div>
                       </div>
                     </button>
                   </div>

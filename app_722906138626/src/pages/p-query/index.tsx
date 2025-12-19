@@ -11,6 +11,8 @@ interface QueryResult {
   id: string;
   question: string;
   sku: string;
+  category: string;
+  problemLevel: string;
   carModel: string;
   time: string;
   standardAnswer: string;
@@ -30,12 +32,15 @@ const PQueryPage: React.FC = () => {
   const [sortBy, setSortBy] = useState('relevance');
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
   const [displayResults, setDisplayResults] = useState<QueryResult[]>([]);
+  const [hotTags, setHotTags] = useState<string[]>([]);
 
   const mockResults: QueryResult[] = [
     {
       id: 'Q001',
       question: '货架安装不上，螺丝孔对不齐',
       sku: 'AP-SHELF-001',
+      category: '安装问题',
+      problemLevel: 'P1',
       carModel: '大众途观L',
       time: '2024-01-15 14:30',
       standardAnswer: '请检查安装位置是否正确，建议参考安装说明书第3页的图示。如仍有问题，请联系技术支持热线400-xxx-xxxx。',
@@ -48,6 +53,8 @@ const PQueryPage: React.FC = () => {
       id: 'Q002',
       question: '保险杠表面有划痕，是否属于质量问题',
       sku: 'AP-BUMPER-002',
+      category: '质量问题',
+      problemLevel: 'P2',
       carModel: '本田雅阁',
       time: '2024-01-14 09:15',
       standardAnswer: '轻微划痕属于正常现象，可通过抛光处理修复。如划痕较深，请提供照片以便我们评估是否属于质量问题。',
@@ -60,6 +67,8 @@ const PQueryPage: React.FC = () => {
       id: 'Q003',
       question: '踏板安装后松动，如何固定',
       sku: 'AP-PEDAL-003',
+      category: '安装问题',
+      problemLevel: 'P1',
       carModel: '丰田汉兰达',
       time: '2024-01-13 16:45',
       standardAnswer: '请检查固定螺丝是否拧紧，建议使用扭矩扳手按照说明书要求的扭矩值进行固定。如问题持续存在，请联系我们。',
@@ -73,6 +82,45 @@ const PQueryPage: React.FC = () => {
   useEffect(() => {
     const originalTitle = document.title;
     document.title = '问题查询 - 售后问题知识库';
+    
+    // 计算热门标签
+    const calculateHotTags = () => {
+      try {
+        const items = storageGetItems();
+        if (!items || items.length === 0) {
+           // 如果没有数据，使用默认的
+           setHotTags(['安装问题', '质量问题', '使用方法']);
+           return;
+        }
+
+        // 统计分类频率
+        const categoryCount: Record<string, number> = {};
+        items.forEach(item => {
+          const cat = item.category?.trim();
+          if (cat) {
+            categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+          }
+        });
+
+        // 排序并取前3
+        const sortedTags = Object.entries(categoryCount)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 3)
+          .map(([tag]) => tag);
+
+        if (sortedTags.length > 0) {
+          setHotTags(sortedTags);
+        } else {
+          setHotTags(['安装问题', '质量问题', '使用方法']);
+        }
+      } catch (e) {
+        console.error('Failed to calculate hot tags', e);
+        setHotTags(['安装问题', '质量问题', '使用方法']);
+      }
+    };
+
+    calculateHotTags();
+
     return () => { document.title = originalTitle; };
   }, []);
 
@@ -87,6 +135,8 @@ const PQueryPage: React.FC = () => {
       id: String(i.id),
       question: i.problem_description,
       sku: i.sku,
+      category: i.category || '未分类',
+      problemLevel: i.problem_level || 'P3',
       carModel: i.vehicle_model || '通用',
       time: i.update_time,
       standardAnswer: i.standard_answer,
@@ -226,30 +276,15 @@ const PQueryPage: React.FC = () => {
               {/* 查询建议 */}
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="text-sm text-text-secondary">热门问题：</span>
-                <button 
-                  onClick={() => handleSuggestionClick('安装问题')}
-                  className="px-3 py-1 text-sm bg-white/60 text-text-secondary rounded-full hover:bg-secondary hover:text-white transition-colors"
-                >
-                  安装问题
-                </button>
-                <button 
-                  onClick={() => handleSuggestionClick('质量问题')}
-                  className="px-3 py-1 text-sm bg-white/60 text-text-secondary rounded-full hover:bg-secondary hover:text-white transition-colors"
-                >
-                  质量问题
-                </button>
-                <button 
-                  onClick={() => handleSuggestionClick('使用方法')}
-                  className="px-3 py-1 text-sm bg-white/60 text-text-secondary rounded-full hover:bg-secondary hover:text-white transition-colors"
-                >
-                  使用方法
-                </button>
-                <button 
-                  onClick={() => handleSuggestionClick('保修政策')}
-                  className="px-3 py-1 text-sm bg-white/60 text-text-secondary rounded-full hover:bg-secondary hover:text-white transition-colors"
-                >
-                  保修政策
-                </button>
+                {hotTags.map((tag, index) => (
+                  <button 
+                    key={index}
+                    onClick={() => handleSuggestionClick(tag)}
+                    className="px-3 py-1 text-sm bg-white/60 text-text-secondary rounded-full hover:bg-secondary hover:text-white transition-colors"
+                  >
+                    {tag}
+                  </button>
+                ))}
               </div>
             </div>
           </section>
@@ -314,9 +349,15 @@ const PQueryPage: React.FC = () => {
                 
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200/50">
                   <div className="flex items-center space-x-4 text-sm text-text-secondary">
-                    <span><i className="fas fa-eye mr-1"></i>查看 {result.viewCount} 次</span>
-                    <span><i className="fas fa-thumbs-up mr-1"></i>有用 {result.likeCount} 次</span>
-                    <span><i className="fas fa-paperclip mr-1"></i>{result.attachmentCount} 个附件</span>
+                    <span><i className="fas fa-folder mr-1"></i>{result.category}</span>
+                    <span className={`px-2 py-0.5 rounded text-xs ${
+                      result.problemLevel === 'P0' ? 'bg-red-100 text-red-600' :
+                      result.problemLevel === 'P1' ? 'bg-orange-100 text-orange-600' :
+                      'bg-blue-100 text-blue-600'
+                    }`}>{result.problemLevel}</span>
+                    {result.attachmentCount > 0 && (
+                      <span><i className="fas fa-paperclip mr-1"></i>{result.attachmentCount} 个附件</span>
+                    )}
                   </div>
                   <div className="flex items-center space-x-2">
                     <button className="p-1 text-text-secondary hover:text-secondary transition-colors">
