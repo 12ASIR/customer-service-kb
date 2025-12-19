@@ -5,7 +5,9 @@ const isGithubPages = process.env.GITHUB_PAGES === 'true';
 
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: command === 'build' && isGithubPages ? '/customer-service-kb/' : '/',
+  // 使用相对路径 './' 可以适配任何仓库名称，无需硬编码 '/customer-service-kb/'
+  // 配合 HashRouter 使用非常完美
+  base: command === 'build' ? './' : '/',
   server: {
     host: true,
     port: 5173,
