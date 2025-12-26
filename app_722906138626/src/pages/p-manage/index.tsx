@@ -227,7 +227,7 @@ const PManagePage: React.FC = () => {
                 continue;
               }
               const item: KnowledgeItem = {
-                id: `${Date.now()}-${imported.length}`, 
+                id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + imported.length, // 优先使用 UUID
                 sku: sku.trim(),
                 category: (cells[idx('品类')] || '').trim(),
                 vehicle_model: (cells[idx('车型')] || '通用').trim(),
@@ -287,7 +287,7 @@ const PManagePage: React.FC = () => {
                 continue;
               }
               const item: KnowledgeItem = {
-                id: `${Date.now()}-${imported.length}`, 
+                id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + imported.length, // 优先使用 UUID
                 sku: sku.trim(),
                 category: (cells[idx('品类')] || '').trim(),
                 vehicle_model: (cells[idx('车型')] || '通用').trim(),
@@ -706,7 +706,7 @@ const PManagePage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200/50">
-                    {currentPageData.map((item) => (
+                    {currentPageData.map((item, index) => (
                       <tr key={item.id} className={styles.tableRowHover}>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <input
@@ -715,7 +715,7 @@ const PManagePage: React.FC = () => {
                             onChange={() => toggleSelect(item.id)}
                           />
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-text-primary">{item.id}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-text-primary">{index + 1 + startIndex}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-text-primary">{item.sku}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-text-secondary">{item.category}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-text-secondary">{item.vehicle_model}</td>

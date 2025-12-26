@@ -1,23 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getItems as storageGetItems, fetchAllItems, saveItem, KBItem } from '../../utils/storage';
+import { fetchAllItems, saveItem, type KBItem } from '../../utils/storage';
 import Layout from '../../components/Layout';
 
-interface KnowledgeItem {
-  id: string;
-  sku: string;
-  category: string;
-  vehicle_model: string;
-  problem_level: string;
-  problem_type: string;
-  problem_description: string;
-  standard_answer: string;
-  internal_solution: string;
-  common_mistakes: string;
-  update_time: string;
-  attachments: number;
-  attachment_urls?: string[];
-}
+interface KnowledgeItem extends KBItem {}
 
 const toZhProblemType = (v: string) => {
   const m: Record<string, string> = {

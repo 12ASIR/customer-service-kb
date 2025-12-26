@@ -23,6 +23,7 @@ type FormErrors = Partial<FormData>;
 interface UploadedFile {
   file: File;
   id: string;
+  previewUrl?: string;
 }
 
 // 将图片文件转为Base64，非图片返回null
@@ -137,7 +138,8 @@ const AddQuestionPage: React.FC = () => {
       // 添加文件到列表
       const newFile: UploadedFile = {
         file,
-        id: Date.now() + Math.random().toString(36).slice(2, 11)
+        id: Date.now() + Math.random().toString(36).slice(2, 11),
+        previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
       };
       setUploadedFiles(prev => [...prev, newFile]);
     });
@@ -176,7 +178,13 @@ const AddQuestionPage: React.FC = () => {
 
   // 移除文件
   const handleRemoveFile = (fileId: string) => {
-    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
+    setUploadedFiles(prev => {
+      const fileToRemove = prev.find(f => f.id === fileId);
+      if (fileToRemove?.previewUrl) {
+        URL.revokeObjectURL(fileToRemove.previewUrl);
+      }
+      return prev.filter(f => f.id !== fileId);
+    });
   };
 
   // 表单验证
@@ -550,9 +558,13 @@ const AddQuestionPage: React.FC = () => {
                         {uploadedFiles.map((uploadedFile) => (
                           <div key={uploadedFile.id} className={`${styles.fileItem} flex items-center justify-between p-3 border border-gray-200 rounded-lg`}>
                             <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 bg-gradient-button rounded-lg flex items-center justify-center">
-                                <i className={`fas ${uploadedFile.file.type.startsWith('image/') ? 'fa-image' : 'fa-video'} text-white text-sm`}></i>
-                              </div>
+                              <div className="w-8 h-8 bg-gradient-button rounded-lg flex items-center justify-center overflow-hidden">
+                        {uploadedFile.previewUrl ? (
+                          <img src={uploadedFile.previewUrl} alt="preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <i className={`fas ${uploadedFile.file.type.startsWith('image/') ? 'fa-image' : 'fa-video'} text-white text-sm`}></i>
+                        )}
+                      </div>
                               <div>
                                 <div className="text-sm font-medium text-text-primary">{uploadedFile.file.name}</div>
                                 <div className="text-xs text-text-secondary">{formatFileSize(uploadedFile.file.size)} • {uploadedFile.file.type}</div>
