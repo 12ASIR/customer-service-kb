@@ -156,6 +156,33 @@ export async function refreshRemoteData() {
   await loadRemoteData();
 }
 
+// 保存单个条目（支持新增和更新，自动同步到本地和云端）
+export async function saveItem(item: KBItem): Promise<void> {
+  // 1. 保存到 LocalStorage
+  const localItemsStr = localStorage.getItem(ITEMS_KEY);
+  let localItems: KBItem[] = [];
+  try {
+    localItems = localItemsStr ? JSON.parse(localItemsStr) : [];
+  } catch (e) {
+    console.error('Failed to parse local items', e);
+    localItems = [];
+  }
+
+  const index = localItems.findIndex(i => i.id === item.id);
+  if (index >= 0) {
+    localItems[index] = item;
+  } else {
+    localItems.push(item);
+  }
+  
+  localStorage.setItem(ITEMS_KEY, JSON.stringify(localItems));
+  
+  // 2. 同步到云端 (如果启用)
+  if (isCloudEnabled()) {
+    await syncItemToCloud(item);
+  }
+}
+
 // 保存所有数据（智能判断是存本地还是存云端）
 // 注意：这个函数签名从 setItems(items) 变更为 saveItem(item) 更合适云端
 // 但为了兼容，我们保留批量接口，但内部可能只处理变动
