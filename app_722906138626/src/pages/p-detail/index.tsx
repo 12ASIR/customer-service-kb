@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getItems as storageGetItems, saveItem, KBItem } from '../../utils/storage';
+import { getItems as storageGetItems, fetchAllItems, saveItem, KBItem } from '../../utils/storage';
 import Layout from '../../components/Layout';
 
 interface KnowledgeItem {
@@ -36,106 +36,6 @@ const toZhProblemType = (v: string) => {
   return v;
 };
 
-const mockData: KnowledgeItem[] = [
-  {
-    id: '1',
-    sku: 'XBCB-014',
-    category: '保险杠',
-    vehicle_model: 'F150',
-    problem_level: 'SKU专属',
-    problem_type: '使用',
-    problem_description: '后梁安装支架与保险杠孔位不适配',
-    standard_answer: '您好，目前该车型的后梁安装支架与保险杠孔位不适配，我们可以提供原车安装支架的图片进行核对。',
-    internal_solution: '根据图片进行区分，目前只有图片中的1号安装支架是适配的。',
-    common_mistakes: '是否适配',
-    update_time: '2024-01-15 14:30',
-    attachments: 2,
-    attachment_urls: [
-      'https://picsum.photos/id/237/800/600',
-      'https://picsum.photos/id/238/800/600'
-    ]
-  },
-  {
-    id: '2',
-    sku: 'XBFA-700',
-    category: '叉车臂',
-    vehicle_model: '通用',
-    problem_level: 'SKU专属',
-    problem_type: '使用',
-    problem_description: '中间圆孔的孔径是多少？',
-    standard_answer: 'XBFA-700叉车臂中间圆孔的孔径是4英寸。',
-    internal_solution: '修图，图片增加尺寸标识',
-    common_mistakes: '/',
-    update_time: '2024-01-14 09:15',
-    attachments: 1,
-    attachment_urls: [
-      'https://picsum.photos/id/239/800/600'
-    ]
-  },
-  {
-    id: '3',
-    sku: 'XBCR-0024',
-    category: '皮卡车顶框',
-    vehicle_model: 'Tundra CrewMax Cab',
-    problem_level: 'SKU专属',
-    problem_type: '使用',
-    problem_description: '适配哪款LED灯？',
-    standard_answer: 'XBCR-0024行李架适配W聚光LED灯。',
-    internal_solution: 'SKU Bumper-Long-S',
-    common_mistakes: '/',
-    update_time: '2024-01-13 16:45',
-    attachments: 1,
-    attachment_urls: [
-      'https://picsum.photos/id/240/800/600'
-    ]
-  }
-];
-
-const queryData: KnowledgeItem[] = [
-  {
-    id: 'Q001',
-    sku: 'AP-SHELF-001',
-    category: '货架',
-    vehicle_model: '大众途观L',
-    problem_level: '通用',
-    problem_type: '使用',
-    problem_description: '货架安装不上，螺丝孔对不齐',
-    standard_answer: '请检查安装位置是否正确，建议参考安装说明书第3页的图示。如仍有问题，请联系技术支持热线400-xxx-xxxx。',
-    internal_solution: '确认支架型号与车体匹配；检查运输损坏；必要时安排上门安装服务。',
-    common_mistakes: '孔位不匹配；安装支架型号错误',
-    update_time: '2024-01-15 14:30',
-    attachments: 2
-  },
-  {
-    id: 'Q002',
-    sku: 'AP-BUMPER-002',
-    category: '保险杠',
-    vehicle_model: '本田雅阁',
-    problem_level: '通用',
-    problem_type: '质量',
-    problem_description: '保险杠表面有划痕，是否属于质量问题',
-    standard_answer: '轻微划痕属于正常现象，可通过抛光处理修复。如划痕较深，请提供照片以便我们评估是否属于质量问题。',
-    internal_solution: '指导客户进行抛光；无法修复则依据保修政策处理；记录问题用于改进。',
-    common_mistakes: '正常轻微划痕误判为质量问题',
-    update_time: '2024-01-14 09:15',
-    attachments: 1
-  },
-  {
-    id: 'Q003',
-    sku: 'AP-PEDAL-003',
-    category: '踏板',
-    vehicle_model: '丰田汉兰达',
-    problem_level: '通用',
-    problem_type: '使用',
-    problem_description: '踏板安装后松动，如何固定',
-    standard_answer: '请检查固定螺丝是否拧紧，建议使用扭矩扳手按照说明书要求的扭矩值进行固定。如问题持续存在，请联系我们。',
-    internal_solution: '确认正确扭矩安装；检查是否变形；必要时提供加强型固定件。',
-    common_mistakes: '扭矩不足导致松动',
-    update_time: '2024-01-13 16:45',
-    attachments: 3
-  }
-];
-
 const PDetailPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -156,16 +56,22 @@ const PDetailPage: React.FC = () => {
     const searchParams = new URLSearchParams(location.search);
     const questionId = searchParams.get('questionId');
     
-    if (questionId) {
-      const manageItem = mockData.find(item => item.id === questionId);
-      const queryItem = queryData.find(item => item.id === questionId);
-      let localItem: KnowledgeItem | null = null;
-      const localItems = storageGetItems() as KBItem[];
-      localItem = localItems.find((i) => String(i.id) === String(questionId)) || null;
-      setKnowledgeItem(manageItem || queryItem || localItem || null);
-    }
-    
-    setLoading(false);
+    const loadData = async () => {
+      if (questionId) {
+        try {
+          // 统一从 fetchAllItems 获取数据，它会合并云端、本地和静态数据
+          const allItems = await fetchAllItems();
+          const item = allItems.find(i => String(i.id) === String(questionId));
+          setKnowledgeItem(item || null);
+        } catch (error) {
+          console.error('Failed to load detail item:', error);
+          setKnowledgeItem(null);
+        }
+      }
+      setLoading(false);
+    };
+
+    loadData();
   }, [location.search]);
 
   const handleBack = () => {
