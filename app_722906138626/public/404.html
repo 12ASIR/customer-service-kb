@@ -4,109 +4,41 @@
     <meta charset="utf-8">
     <title>Redirecting...</title>
     <script type="text/javascript">
-      // 单页应用 (SPA) 重定向脚本
-      // 处理 GitHub Pages 不支持 SPA 路由的问题
-      // 逻辑：将当前路径 (pathname) 转换为哈希 (hash) 并重定向到首页
-      
+      // GitHub Pages 404 重定向脚本
+      // 当访问不存在的路径时，此脚本会将用户重定向回仓库首页
       (function() {
-        var location = window.location;
-        var path = location.pathname;
-        var search = location.search;
-        var hash = location.hash;
+        var path = window.location.pathname;
+        // 尝试检测仓库名称（通常是路径的第一段）
+        // 例如：/customer-service-kb/foo -> repo = "customer-service-kb"
+        var segments = path.split('/').filter(function(p) { return p !== ''; });
         
-        // 获取仓库的基础路径 (例如 /customer-service-kb)
-        // 假设 404.html 位于根目录，我们可以通过计算当前脚本位置或者简单的假设
-        // 这里我们假设 index.html 在同一级目录
-        
-        // 简单的重定向策略：
-        // 1. 保留当前的 path, search, hash
-        // 2. 将 path (除去 base 部分) 转换为 hash
-        
-        // 自动检测 base path (如果部署在子目录)
-        // 这一步比较难精确，但对于 GitHub Pages，通常是 /repo-name/
-        // 我们直接重定向到 ./index.html 并带上参数，让 index.html 里的 JS 处理？
-        // 或者更直接：把 path 拼接到 hash 后
-        
-        // 示例: /repo/query -> /repo/#/query
-        
-        // 获取当前 path 的最后一部分作为 hash，但这可能不准确
-        // 我们使用一个通用的 SPA hack 脚本逻辑
-        
-        var segmentCount = 0; // 如果部署在域名根目录则为0，如果是 /repo/ 则为1
-        
-        // 尝试自动检测 segmentCount
-        // 如果 path 是 /customer-service-kb/query，我们希望保留 /customer-service-kb/
-        // 并把 /query 变成 #/query
-        
-        // 简单暴力法：
-        // 获取当前的 href
-        var href = location.href;
-        // 替换 path 为 hash
-        // 这需要知道 base path。
-        
-        // 既然我们使用了 HashRouter，最稳妥的方法是：
-        // 无论用户访问什么 404 路径，都重定向到 index.html
-        // 并且如果可能，把 path 放到 hash 里
-        
-        // 使用 sessionStorage 传递路径信息给 index.html (可选)
-        // sessionStorage.setItem('redirect_path', path + search + hash);
-        
-        // 强制重定向到当前目录的 index.html
-        // 使用 replace 避免历史记录堆积
-        
-        // 如果我们确信 base 是 './'，那么 window.location.href = './' 应该回到主页
-        // 但这可能丢失子目录。
-        
-        // 最安全的 GitHub Pages 修复方案：
-        // 1. 获取当前 URL
-        // 2. 识别出 base path (通常是第一个 segment)
-        // 3. 构造新的 URL: base_path + '/#/' + remaining_path
-        
-        // 简化版：直接跳转到首页，丢弃路径（为了恢复正常界面）
-        // window.location.replace('./');
-        
-        // 进阶版：保留路径
-        var pathSegments = path.split('/').filter(p => p);
-        // 假设第一个 segment 是 repo name (如果是 username.github.io 则可能没有)
-        // 这里不做复杂猜测，直接使用相对路径跳转回 index.html
-        // 并在 hash 中尝试保留 info
-        
-        // 最终决定：为了“恢复正常界面”，最重要的是能加载 app。
-        // 我们使用 meta refresh 作为 fallback，JS replace 作为主要手段
-        
-        // 如果当前已经是 index.html (不应该发生，因为是 404)，则不做操作
-        if (path.endsWith('/index.html')) return;
-
-        // 计算相对路径回到根目录
-        // 例如 /repo/foo/bar -> ../../
-        // 但我们不知道 /repo/ 是根还是 / 是根
-        
-        // 使用绝对路径重定向 (假设部署在 GitHub Pages 的项目根目录)
-        // 我们可以利用 404.html 所在的位置就是根目录这一事实
-        
-        // 重新加载 index.html，并把当前路径作为 query param 传入 (以便 index.html 可以恢复它)
-        // 或者直接跳回首页
-        
-        // 这里为了绝对稳健，直接刷新到当前目录的 index.html
-        // 可能会丢失深层路径的样式，但应用能跑起来
-        // 配合 vite config 的 base: './'
-        
-        // 如果是深层路径 /repo/a/b，./index.html 是 /repo/a/index.html (不存在)
-        // 所以必须跳回根。
-        
-        // 这是一个通用的重定向脚本，来源于 https://github.com/rafgraph/spa-github-pages
-        var l = window.location;
-        l.replace(
-          l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-          l.pathname.split('/').slice(0, 1 + segmentCount).join('/') + '/?/' +
-          l.pathname.slice(1).split('/').slice(segmentCount).join('/').replace(/&/g, '~and~') +
-          (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
-          l.hash
-        );
-      }());
+        if (segments.length > 0) {
+          // 假设第一段是仓库名，重定向到 /仓库名/
+          // 这样可以确保加载 index.html
+          var repo = segments[0];
+          var newPath = '/' + repo + '/';
+          
+          // 防止死循环：如果当前就是首页，不重定向
+          if (path === newPath || path === '/' + repo) {
+             return;
+          }
+          
+          // 保留 Hash (如果有)
+          if (window.location.hash) {
+            newPath += window.location.hash;
+          }
+          
+          window.location.replace(newPath);
+        } else {
+          // 根路径，直接重定向到 /
+          if (path !== '/') {
+            window.location.replace('/');
+          }
+        }
+      })();
     </script>
   </head>
   <body>
-    Redirecting to application...
+    <p>Page not found. Redirecting to home...</p>
   </body>
 </html>
