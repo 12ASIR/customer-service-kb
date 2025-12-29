@@ -6,7 +6,6 @@ import P_query from '../pages/p-query';
 import P_add from '../pages/p-add';
 import P_manage from '../pages/p-manage';
 import P_detail from '../pages/p-detail';
-import NotFoundPage from './NotFoundPage';
 import ErrorPage from './ErrorPage';
 
 // 使用 createBrowserRouter 创建路由实例
@@ -57,7 +56,7 @@ const router = createHashRouter([
       },
       {
         path: '*',
-        element: <NotFoundPage />,
+        element: <Navigate to='/query' replace />,
       },
     ]
   }
