@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+    <script type="text/javascript">
+      // 获取当前路径（去除 base 路径前缀如果存在）
+      // 这里简单处理：将当前路径（非 Hash 部分）转换为 Hash 路径
+      // 例如: /customer-service-kb/detail -> /customer-service-kb/#/detail
+      
+      var path = window.location.pathname;
+      var repoName = '/customer-service-kb'; // 假设仓库名，如果不是根路径部署需调整
+      
+      // 如果路径不包含 hash，且不是根路径，则重定向
+      // 简单策略：保留当前所有路径作为 hash
+      // 注意：GitHub Pages 部署在子目录时，pathname 会包含子目录
+      
+      // 获取最后一部分作为目标路径
+      // 更通用的方式：
+      var segmentCount = 0;
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + segmentCount).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(segmentCount).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    </script>
+    <!-- 上面的脚本是 SPA redirect 的一部分，但针对 HashRouter，我们只需要简单的重定向 -->
+    <script>
+       // 简易版：直接跳转到首页，带上原始路径作为参数（可选）
+       // 或者直接把 pathname 转为 hash
+       // 假设部署在 /customer-service-kb/
+       // 访问 /customer-service-kb/foo -> /customer-service-kb/#/foo
+       
+       var currentPath = window.location.pathname;
+       var appBase = '/customer-service-kb/'; // 根据实际部署调整，或者动态获取
+       
+       // 如果 currentPath 包含 appBase，则保留后续部分
+       // 这里为了稳健，直接重定向到首页 #
+       // window.location.href = './#/';
+       
+       // 更友好的重定向：尝试保留路径
+       // window.location.replace('./#' + window.location.pathname.replace('/customer-service-kb', ''));
+    </script>
+    <meta http-equiv="refresh" content="0;url=./index.html">
+  </head>
+  <body>
+    Redirecting...
+  </body>
+</html>

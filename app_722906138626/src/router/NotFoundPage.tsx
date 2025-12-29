@@ -5,69 +5,47 @@ import { useNavigate } from 'react-router-dom';
 const NotFoundPage: React.FC = () => {
   const navigate = useNavigate();
 
-  const goBack = () => {
-    navigate(-1);
-  };
-
-  const containerStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100vh',
-    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'",
-    background: 'linear-gradient(180deg, #f3f5ff 0%, #ffffff 100%)',
-    color: '#2d3748',
-    textAlign: 'center',
-    padding: '1rem',
-  };
-
-  const headingStyle: React.CSSProperties = {
-    fontSize: '10rem',
-    fontWeight: '900',
-    margin: '0',
-    color: '#4a5568',
-    textShadow: '0 4px 8px rgba(0,0,0,0.05)',
-  };
-
-  const textStyle: React.CSSProperties = {
-    fontSize: '1.5rem',
-    fontWeight: '500',
-    marginTop: '-2rem',
-    marginBottom: '1rem',
-    color: '#4a5568',
-  };
-
-  const subTextStyle: React.CSSProperties = {
-    fontSize: '1rem',
-    color: '#718096',
-    marginBottom: '2rem',
-    maxWidth: '400px',
-  };
-
-  const buttonStyle: React.CSSProperties = {
-    padding: '12px 24px',
-    fontSize: '1rem',
-    fontWeight: '600',
-    color: '#ffffff',
-    backgroundColor: '#6366f1',
-    border: 'none',
-    borderRadius: '9999px',
-    cursor: 'pointer',
-    textDecoration: 'none',
-    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-  };
-
   return (
-    <div style={containerStyle}>
-      <h1 style={headingStyle}>404</h1>
-      <p style={textStyle}>页面未找到</p>
-      <p style={subTextStyle}>
-        抱歉！您访问的页面不存在，当前页面功能待完善。
-      </p>
-      <button onClick={goBack} style={buttonStyle}>
-        返回上一页
-      </button>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+      <div className="text-center">
+        {/* 404 图标/文字 */}
+        <h1 className="text-9xl font-black text-gray-200">404</h1>
+        
+        <div className="mt-[-4rem] mb-8">
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">
+            页面未找到
+          </h2>
+          <p className="text-gray-600 max-w-md mx-auto leading-relaxed">
+            抱歉，您访问的页面不存在或已被移除。
+            <br />
+            请检查链接是否正确，或返回首页继续操作。
+          </p>
+        </div>
+
+        {/* 操作按钮组 */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200"
+          >
+            <i className="fas fa-arrow-left mr-2"></i>
+            返回上一页
+          </button>
+
+          <button
+            onClick={() => navigate('/query')}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-gradient-button text-white font-medium shadow-lg hover:shadow-xl hover:opacity-90 transition-all focus:outline-none focus:ring-2 focus:ring-blue-300"
+          >
+            <i className="fas fa-home mr-2"></i>
+            回到首页
+          </button>
+        </div>
+      </div>
+      
+      {/* 底部装饰 */}
+      <div className="absolute bottom-8 text-sm text-gray-400">
+        Customer Service Knowledge Base
+      </div>
     </div>
   );
 };
