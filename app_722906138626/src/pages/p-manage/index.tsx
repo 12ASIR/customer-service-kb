@@ -226,8 +226,9 @@ const PManagePage: React.FC = () => {
                 rowErrors.push(`第 ${r + 1} 行缺少必填字段 SKU 或 具体问题描述`);
                 continue;
               }
+              const idRaw = cells[idx('序号')]?.trim();
               const item: KnowledgeItem = {
-                id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + imported.length, // 优先使用 UUID
+                id: idRaw || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + imported.length),
                 sku: sku.trim(),
                 category: (cells[idx('品类')] || '').trim(),
                 vehicle_model: (cells[idx('车型')] || '通用').trim(),
@@ -286,8 +287,9 @@ const PManagePage: React.FC = () => {
                 rowErrors.push(`第 ${r + 1} 行缺少必填字段 SKU 或 具体问题描述`);
                 continue;
               }
+              const idRaw = cells[idx('序号')] ? String(cells[idx('序号')]).trim() : '';
               const item: KnowledgeItem = {
-                id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + imported.length, // 优先使用 UUID
+                id: idRaw || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + imported.length),
                 sku: sku.trim(),
                 category: (cells[idx('品类')] || '').trim(),
                 vehicle_model: (cells[idx('车型')] || '通用').trim(),
@@ -337,25 +339,105 @@ const PManagePage: React.FC = () => {
       alert('未解析到有效数据，请检查文件内容或模板格式');
       return;
     }
-    const existingKeys = new Set(combinedData.map(i => `${i.sku}|${i.vehicle_model}|${i.problem_description}`));
-    const toImport = importMode === 'dedupe'
-      ? importPreview.filter(i => !existingKeys.has(`${i.sku}|${i.vehicle_model}|${i.problem_description}`))
-      : importPreview;
+
+    // 1. 构建现有数据映射 (ID -> Item)
+    const existingMap = new Map(combinedData.map(item => [item.id, item]));
     
-    const newItems = [...combinedData, ...toImport];
+    // 2. 处理导入数据 (合并逻辑)
+    const processedImport = importPreview.map(importItem => {
+      const existingItem = existingMap.get(importItem.id);
+      
+      if (existingItem) {
+        // 如果存在同ID数据，执行合并：
+        // - 覆盖文本字段
+        // - 保留原有附件 (除非导入数据明确提供了新的 attachment_urls，这在 Excel 导入中通常为空)
+        // - 更新时间使用导入数据的时间 (如果有) 或保留原时间 (如果导入时间为空/无效)? 
+        //   通常导入的 Excel 会有时间，我们优先使用导入的时间，或者如果用户希望 "更新为当前时间"，则需修改。
+        //   这里我们保留 "导入数据优先" 的原则，但在 Excel 解析时已默认使用了 new Date() 如果为空。
+        
+        return {
+          ...importItem,
+          // 关键：保留原有的附件 URL 和数量 (如果导入的附件数为 0)
+          attachment_urls: (importItem.attachment_urls && importItem.attachment_urls.length > 0) 
+            ? importItem.attachment_urls 
+            : existingItem.attachment_urls,
+          attachments: (importItem.attachments > 0) 
+            ? importItem.attachments 
+            : (existingItem.attachment_urls?.length || existingItem.attachments || 0)
+        };
+      } else {
+        // 如果是新数据
+        return importItem;
+      }
+    });
+
+    // 3. 根据模式处理
+    let finalItems: KnowledgeItem[] = [];
+    
+    if (importMode === 'dedupe') {
+      // 去重模式：
+      // - 如果 ID 存在，已在 processedImport 中合并更新。
+      // - 如果 ID 不存在，检查 SKU+Model+Desc 是否重复?
+      //   注意：如果用户修改了 Excel 中的 ID (或者 Excel 没有 ID)，那么 processedImport 中的 ID 是新的。
+      //   这种情况下，我们可能需要根据内容去重。
+      
+      // 这里的逻辑稍微复杂：
+      // processedImport 包含了 "更新后的旧数据" (ID 匹配) 和 "新数据" (ID 不匹配)。
+      // 我们需要把 combinedData 中 *未被更新* 的数据保留下来，然后加上 processedImport 中的数据?
+      // 不，processedImport 只包含 Excel 中的行。
+      
+      // 正确逻辑：
+      // A. 找出 Excel 中涉及到的 ID，这些 ID 对应的数据将由 processedImport 替代。
+      // B. 找出 Excel 中 *没有* 的 ID，保留原样。
+      // C. 对于 Excel 中有但 ID 是新的 (即新增)，检查内容去重。
+      
+      const importIds = new Set(processedImport.map(i => i.id));
+      
+      // 保留未被导入覆盖的现有数据
+      const keptExisting = combinedData.filter(i => !importIds.has(i.id));
+      
+      // 内容去重检查 (针对那些 ID 是新生成的项目)
+      // 如果 Excel 没有 ID，我们生成了新 ID。如果内容跟现有数据一样，是否跳过？
+      // 假设用户想要 "更新"，但 Excel 没填 ID，这很难判断。
+      // 简单起见：如果 ID 匹配，直接更新 (已在 processedImport 中处理)。
+      // 如果 ID 不匹配，检查 SKU 等关键字段。
+      
+      const existingKeys = new Set(combinedData.map(i => `${i.sku}|${i.vehicle_model}|${i.problem_description}`));
+      
+      const uniqueImports = processedImport.filter(item => {
+        // 如果 ID 是旧的 (已存在)，说明是更新，保留。
+        if (existingMap.has(item.id)) return true;
+        
+        // 如果 ID 是新的，检查内容键
+        const key = `${item.sku}|${item.vehicle_model}|${item.problem_description}`;
+        return !existingKeys.has(key);
+      });
+      
+      finalItems = [...keptExisting, ...uniqueImports];
+      
+    } else {
+      // 追加模式 (Append)
+      // 简单追加，不管 ID 是否重复 (但 ID 必须唯一，所以如果 ID 重复，其实应该覆盖?)
+      // 通常 "追加" 意味着 "不删除旧的"，但如果 ID 相同，物理上只能存在一个。
+      // 所以对于 ID 相同的数据，"追加" 其实也是 "更新"。
+      // 对于 ID 不同的数据，直接添加。
+      
+      const importIds = new Set(processedImport.map(i => i.id));
+      const keptExisting = combinedData.filter(i => !importIds.has(i.id));
+      finalItems = [...keptExisting, ...processedImport];
+    }
     
     // 如果是云端模式，执行云端同步
     if (isCloudEnabled()) {
-      syncImportToCloud(toImport);
+      // 找出新增或更新的项目
+      // 简单起见，同步所有导入的项目
+      syncImportToCloud(processedImport);
     }
     
-    // 关键修正：必须调用 storageSetItems 才能持久化到 LocalStorage
-    // updateItems 只是更新了 React 状态，而且在 isCloudEnabled 时逻辑有变
-    // 这里我们强制更新 LocalStorage 以确保本地可见
-    storageSetItems(newItems);
-    setLocalItems(newItems); // 立即更新 UI
+    storageSetItems(finalItems);
+    setLocalItems(finalItems);
     
-    alert(`导入成功，解析 ${importPreview.length} 条，实际新增 ${toImport.length} 条${importMode === 'dedupe' ? '（已去重）' : ''}`);
+    alert(`导入成功！\n实际处理: ${processedImport.length} 条\n(已自动合并同 ID 数据并保留图片)`);
     setShowImportModal(false);
     setSelectedFile(null);
     setImportPreview([]);

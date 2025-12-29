@@ -33,6 +33,8 @@ const PQueryPage: React.FC = () => {
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
   const [displayResults, setDisplayResults] = useState<QueryResult[]>([]);
   const [hotTags, setHotTags] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const mockResults: QueryResult[] = [
     {
@@ -143,7 +145,7 @@ const PQueryPage: React.FC = () => {
       internalSolution: i.internal_solution,
       viewCount: 0,
       likeCount: 0,
-      attachmentCount: Array.isArray(i.attachment_urls) ? i.attachment_urls.length : (i.attachments || 0),
+      attachmentCount: Array.isArray(i.attachment_urls) ? i.attachment_urls.length : 0,
     }));
     return [...mockResults, ...mappedLocal];
   };
@@ -171,6 +173,7 @@ const PQueryPage: React.FC = () => {
         .filter((r): r is QueryResult => Boolean(r));
       setDisplayResults(ordered);
       setResultCount(ordered.length);
+      setCurrentPage(1); // Reset to first page on new search
       setShowResults(ordered.length > 0);
       setShowNoResults(ordered.length === 0);
       setIsSearching(false);
@@ -215,10 +218,31 @@ const PQueryPage: React.FC = () => {
     navigate('/add');
   };
 
-  const handlePaginationClick = (pageText: string) => {
-    if (import.meta.env.DEV) {
-      console.log('跳转到页面：', pageText);
+  const handlePaginationClick = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const totalPages = Math.ceil(resultCount / itemsPerPage);
+  const currentResults = displayResults.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const generatePageNumbers = () => {
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    const end = Math.min(totalPages, start + maxVisible - 1);
+    
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
     }
+
+    const pages = [];
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
   };
 
   return (
@@ -314,7 +338,7 @@ const PQueryPage: React.FC = () => {
 
           {/* 结果列表 */}
           <div className="space-y-4">
-            {displayResults.map((result) => (
+            {currentResults.map((result) => (
               <div 
                 key={result.id}
                 className={`bg-gradient-card rounded-xl shadow-card p-6 ${styles.resultCardHover} transition-all`}
@@ -373,47 +397,41 @@ const PQueryPage: React.FC = () => {
           </div>
 
               {/* 分页 */}
-              <div className="flex items-center justify-center mt-8">
-                <nav className="flex items-center space-x-2">
-                  <button 
-                    onClick={() => handlePaginationClick('prev')}
-                    className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <i className="fas fa-chevron-left"></i>
-                  </button>
-                  <button 
-                    onClick={() => handlePaginationClick('1')}
-                    className="px-3 py-2 text-sm bg-gradient-button text-white rounded-lg"
-                  >
-                    1
-                  </button>
-                  <button 
-                    onClick={() => handlePaginationClick('2')}
-                    className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    2
-                  </button>
-                  <button 
-                    onClick={() => handlePaginationClick('3')}
-                    className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    3
-                  </button>
-                  <span className="px-2 text-text-secondary">...</span>
-                  <button 
-                    onClick={() => handlePaginationClick('8')}
-                    className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    8
-                  </button>
-                  <button 
-                    onClick={() => handlePaginationClick('next')}
-                    className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <i className="fas fa-chevron-right"></i>
-                  </button>
-                </nav>
-              </div>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center mt-8">
+                  <nav className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => handlePaginationClick(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <i className="fas fa-chevron-left"></i>
+                    </button>
+                    
+                    {generatePageNumbers().map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => handlePaginationClick(page)}
+                        className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                          page === currentPage 
+                            ? 'bg-gradient-button text-white shadow-md' 
+                            : 'text-text-secondary hover:text-text-primary hover:bg-gray-100'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+
+                    <button 
+                      onClick={() => handlePaginationClick(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <i className="fas fa-chevron-right"></i>
+                    </button>
+                  </nav>
+                </div>
+              )}
             </section>
           )}
 
