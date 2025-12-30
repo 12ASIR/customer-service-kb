@@ -101,6 +101,9 @@ export async function fetchAllItems(): Promise<KBItem[]> {
   // 确保远程静态数据已加载
   await loadRemoteData();
   
+  // 获取已删除ID列表
+  const deletedIds = new Set(getDeletedIds());
+  
   // 读取本地
   let local: KBItem[] = [];
   try {
@@ -129,7 +132,11 @@ export async function fetchAllItems(): Promise<KBItem[]> {
   
   // 合并：云端优先，其次本地（排除云端重复），最后静态远程（排除云端和本地重复）
   const remoteFiltered = remoteData.filter(i => !cloudIds.has(i.id) && !localIds.has(i.id));
-  return [...cloud, ...local.filter(i => !cloudIds.has(i.id)), ...remoteFiltered];
+  
+  const allItems = [...cloud, ...local.filter(i => !cloudIds.has(i.id)), ...remoteFiltered];
+  
+  // 统一过滤已删除的数据
+  return allItems.filter(item => !deletedIds.has(item.id));
 }
 
 // 同步获取（旧方法兼容）
@@ -140,13 +147,14 @@ export function getItems(): KBItem[] {
 }
 
 function getItemsSync(): KBItem[] {
+  const deletedIds = new Set(getDeletedIds());
   try {
     const local = JSON.parse(localStorage.getItem(ITEMS_KEY) || '[]');
     const localIds = new Set(local.map((i: KBItem) => i.id));
     const remoteFiltered = remoteData.filter(i => !localIds.has(i.id));
-    return [...local, ...remoteFiltered];
+    return [...local, ...remoteFiltered].filter(item => !deletedIds.has(item.id));
   } catch {
-    return remoteData;
+    return remoteData.filter(item => !deletedIds.has(item.id));
   }
 }
 

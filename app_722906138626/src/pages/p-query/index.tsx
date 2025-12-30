@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './styles.module.css';
 import Layout from '../../components/Layout';
-import { getItems as storageGetItems, KBItem } from '../../utils/storage';
+import { fetchAllItems, KBItem } from '../../utils/storage';
 import { search as localSearch, SearchDoc } from '../../utils/localSearch';
 
 interface QueryResult {
@@ -86,9 +86,9 @@ const PQueryPage: React.FC = () => {
     document.title = '问题查询 - 售后问题知识库';
     
     // 计算热门标签
-    const calculateHotTags = () => {
+    const calculateHotTags = async () => {
       try {
-        const items = storageGetItems();
+        const items = await fetchAllItems();
         if (!items || items.length === 0) {
            // 如果没有数据，使用默认的
            setHotTags(['安装问题', '质量问题', '使用方法']);
@@ -126,10 +126,10 @@ const PQueryPage: React.FC = () => {
     return () => { document.title = originalTitle; };
   }, []);
 
-  const getCombinedResults = (): QueryResult[] => {
+  const getCombinedResults = async (): Promise<QueryResult[]> => {
     let localItems: KBItem[] = [];
     try {
-      localItems = storageGetItems();
+      localItems = await fetchAllItems();
     } catch (error) {
       console.error('Failed to get items:', error);
     }
@@ -154,8 +154,9 @@ const PQueryPage: React.FC = () => {
     const queryText = queryInputValue.trim();
     if (!queryText) return;
     setIsSearching(true);
-    setTimeout(() => {
-      const all = getCombinedResults();
+    // Use setTimeout to allow UI update before heavy search
+    setTimeout(async () => {
+      const all = await getCombinedResults();
       const docs: SearchDoc[] = all.map((r) => ({
         id: r.id,
         text: [
@@ -177,7 +178,7 @@ const PQueryPage: React.FC = () => {
       setShowResults(ordered.length > 0);
       setShowNoResults(ordered.length === 0);
       setIsSearching(false);
-    }, 300);
+    }, 100);
   };
 
   const handleQueryInputKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {

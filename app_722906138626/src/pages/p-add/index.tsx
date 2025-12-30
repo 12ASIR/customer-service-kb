@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import styles from './styles.module.css';
 import Layout from '../../components/Layout';
-import { getItems as storageGetItems, setItems as storageSetItems, KBItem } from '../../utils/storage';
+import { saveItem, KBItem } from '../../utils/storage';
 
 interface FormData {
   sku: string;
@@ -60,7 +60,6 @@ const AddQuestionPage: React.FC = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // 设置页面标题
   useEffect(() => {
@@ -269,17 +268,13 @@ const AddQuestionPage: React.FC = () => {
     };
     
     try {
-      const existing = storageGetItems();
-      storageSetItems([...existing, newItem]);
-    } catch (error) {
-        console.error('Failed to save item:', error);
+      await saveItem(newItem);
+      alert('保存成功！');
+      navigate('/manage');
+    } catch (e) {
+      console.error('Save failed', e);
+      alert('保存失败，请重试');
     }
-
-    // 模拟提交过程
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setShowSuccessModal(true);
-    }, 1500);
   };
 
   // 取消操作
@@ -287,11 +282,6 @@ const AddQuestionPage: React.FC = () => {
     if (confirm('确定要取消吗？未保存的内容将丢失。')) {
       navigate('/query');
     }
-  };
-
-  // 成功后确定
-  const handleSuccessOk = () => {
-    navigate('/manage');
   };
 
   // 处理键盘事件
@@ -584,58 +574,40 @@ const AddQuestionPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* 操作按钮区域 */}
-                <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200/50">
-                  <button 
-                    type="button" 
-                    onClick={handleCancel}
-                    className="px-8 py-3 border border-gray-300 text-text-primary font-medium rounded-xl hover:bg-gray-50 transition-all"
-                  >
-                    <i className="fas fa-times mr-2"></i>
-                    取消
-                  </button>
-                  <button 
-                    type="submit" 
-                    disabled={isSubmitting}
-                    className="px-8 py-3 bg-gradient-button text-white font-medium rounded-xl shadow-button hover:shadow-lg transition-all disabled:opacity-50"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <i className="fas fa-spinner fa-spin mr-2"></i>
-                        提交中...
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-save mr-2"></i>
-                        提交
-                      </>
-                    )}
-                  </button>
-                </div>
               </form>
             </div>
           </section>
 
-      {/* 成功提示模态框 */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl shadow-card p-8 max-w-md w-full mx-4">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i className="fas fa-check text-green-500 text-2xl"></i>
-              </div>
-              <h3 className="text-xl font-semibold text-text-primary mb-2">新增成功</h3>
-              <p className="text-text-secondary mb-6">问题已成功添加到知识库，感谢您的贡献！</p>
-              <button 
-                onClick={handleSuccessOk}
-                className="px-6 py-2 bg-gradient-button text-white font-medium rounded-lg hover:shadow-lg transition-all"
-              >
-                确定
-              </button>
-            </div>
-          </div>
+      {/* 底部操作栏 */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-10 lg:pl-64">
+        <div className="max-w-4xl mx-auto flex items-center justify-end space-x-4">
+          <button 
+            type="button"
+            onClick={handleCancel}
+            className="px-6 py-2 text-text-secondary hover:text-text-primary transition-colors font-medium"
+          >
+            取消
+          </button>
+          <button 
+            type="button"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="px-8 py-2 bg-gradient-button text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          >
+            {isSubmitting ? (
+              <>
+                <i className="fas fa-spinner fa-spin mr-2"></i>
+                提交中...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-check mr-2"></i>
+                提交问题
+              </>
+            )}
+          </button>
         </div>
-      )}
+      </div>
     </Layout>
   );
 };
