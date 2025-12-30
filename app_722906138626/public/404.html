@@ -3,42 +3,36 @@
   <head>
     <meta charset="utf-8">
     <title>Redirecting...</title>
+    <meta http-equiv="refresh" content="0;url=./index.html">
     <script type="text/javascript">
-      // GitHub Pages 404 重定向脚本
-      // 当访问不存在的路径时，此脚本会将用户重定向回仓库首页
-      (function() {
-        var path = window.location.pathname;
-        // 尝试检测仓库名称（通常是路径的第一段）
-        // 例如：/customer-service-kb/foo -> repo = "customer-service-kb"
-        var segments = path.split('/').filter(function(p) { return p !== ''; });
-        
-        if (segments.length > 0) {
-          // 假设第一段是仓库名，重定向到 /仓库名/
-          // 这样可以确保加载 index.html
-          var repo = segments[0];
-          var newPath = '/' + repo + '/';
-          
-          // 防止死循环：如果当前就是首页，不重定向
-          if (path === newPath || path === '/' + repo) {
-             return;
-          }
-          
-          // 保留 Hash (如果有)
-          if (window.location.hash) {
-            newPath += window.location.hash;
-          }
-          
-          window.location.replace(newPath);
-        } else {
-          // 根路径，直接重定向到 /
-          if (path !== '/') {
+      // 简单且稳健的重定向策略
+      // 直接跳转到当前目录下的 index.html
+      // 由于使用了 HashRouter，回到首页后路由会自动接管
+      
+      var path = window.location.pathname;
+      // 防止无限重定向
+      if (!path.endsWith('/index.html') && path !== '/' && !path.match(/\/$/)) {
+         // 如果当前路径不是以 / 结尾，且不是 index.html
+         // 尝试重定向到仓库根目录
+         
+         // 智能获取仓库根目录：
+         // 假设通常是 /repo-name/
+         var segments = path.split('/').filter(p => p);
+         if (segments.length > 0) {
+            // 尝试跳转到第一级目录 (通常是仓库名)
+            // 例如 /repo/foo -> /repo/
+            var repoRoot = '/' + segments[0] + '/';
+            if (path !== repoRoot) {
+               window.location.replace(repoRoot);
+            }
+         } else {
+            // 根域名情况
             window.location.replace('/');
-          }
-        }
-      })();
+         }
+      }
     </script>
   </head>
   <body>
-    <p>Page not found. Redirecting to home...</p>
+    <p>Page not found. Redirecting...</p>
   </body>
 </html>
